@@ -17,10 +17,15 @@ import {
   List,
   LogOut,
   RefreshCw,
+  Upload,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { importDataFromSyncCode, useAuth } from "../../hooks/useAuth";
+import {
+  exportUploadCode,
+  importDataFromSyncCode,
+  useAuth,
+} from "../../hooks/useAuth";
 import SupervisorAttendance from "./SupervisorAttendance";
 import SupervisorMyEntries from "./SupervisorMyEntries";
 import SupervisorProduction from "./SupervisorProduction";
@@ -74,6 +79,9 @@ export default function SupervisorLayout({
   const [syncError, setSyncError] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadCode, setUploadCode] = useState("");
+
   const handleLogout = () => {
     logout();
   };
@@ -82,6 +90,22 @@ export default function SupervisorLayout({
     setSyncCode("");
     setSyncError("");
     setRefreshOpen(true);
+  };
+
+  const handleOpenUpload = () => {
+    if (!session?.username) return;
+    const code = exportUploadCode(session.username);
+    setUploadCode(code);
+    setUploadOpen(true);
+  };
+
+  const handleCopyUploadCode = async () => {
+    try {
+      await navigator.clipboard.writeText(uploadCode);
+      toast.success("Upload code copied! Send it to Admin via WhatsApp.");
+    } catch {
+      window.prompt("Copy this upload code and send it to Admin:", uploadCode);
+    }
   };
 
   const handleImportRefresh = () => {
@@ -129,6 +153,15 @@ export default function SupervisorLayout({
           <span className="text-xs text-muted-foreground hidden sm:block">
             {session?.name}
           </span>
+          <button
+            type="button"
+            onClick={handleOpenUpload}
+            data-ocid="supervisor.upload_button"
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-primary hover:text-primary/80"
+            title="Upload entries to Admin"
+          >
+            <Upload className="w-4 h-4" />
+          </button>
           <button
             type="button"
             onClick={handleRefresh}
@@ -218,6 +251,62 @@ export default function SupervisorLayout({
                 <Download className="w-4 h-4" />
               )}
               {isSyncing ? "Updating..." : "Update Data"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Entries Dialog */}
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent
+          data-ocid="supervisor.upload_dialog"
+          className="sm:max-w-sm"
+        >
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Upload className="w-5 h-5 text-primary" />
+              Send Entries to Admin
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-sm text-muted-foreground">
+              This code contains all your production entries and attendance.
+              Copy it and send to Admin via WhatsApp. Admin will paste it in the
+              Admin panel to see your entries.
+            </p>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Your Upload Code</Label>
+              <textarea
+                data-ocid="supervisor.upload_code_textarea"
+                readOnly
+                value={uploadCode}
+                className="w-full h-24 text-xs font-mono p-2 rounded-md border border-border bg-muted resize-none select-all"
+                onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ")
+                    (e.target as HTMLTextAreaElement).select();
+                }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Tap the code above to select it, or use the Copy button below.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              data-ocid="supervisor.upload_cancel_button"
+              onClick={() => setUploadOpen(false)}
+            >
+              Close
+            </Button>
+            <Button
+              data-ocid="supervisor.upload_copy_button"
+              onClick={handleCopyUploadCode}
+              className="gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Copy Upload Code
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -45,6 +45,7 @@ import {
   useGetEmployees,
   useUpdateEmployee,
 } from "../../hooks/useQueries";
+import type { ExtendedEmployee } from "../../utils/localStore";
 
 type EmployeeForm = {
   name: string;
@@ -53,6 +54,8 @@ type EmployeeForm = {
   salaryType: string;
   joinDate: string;
   status: string;
+  accountNumber: string;
+  aadharNumber: string;
 };
 
 const emptyForm: EmployeeForm = {
@@ -62,7 +65,19 @@ const emptyForm: EmployeeForm = {
   salaryType: "Piece Rate",
   joinDate: new Date().toISOString().split("T")[0],
   status: "Active",
+  accountNumber: "",
+  aadharNumber: "",
 };
+
+const DEPT_SUGGESTIONS = [
+  "Finishing",
+  "Stitching",
+  "Cutting",
+  "Packing",
+  "Ironing",
+  "Checking",
+  "Embroidery",
+];
 
 export default function EmployeesPage() {
   const employeesQuery = useGetEmployees();
@@ -91,6 +106,7 @@ export default function EmployeesPage() {
 
   const openEdit = (emp: Employee) => {
     setEditEmployee(emp);
+    const extEmp = emp as ExtendedEmployee;
     setForm({
       name: emp.name,
       phone: emp.phone,
@@ -98,6 +114,8 @@ export default function EmployeesPage() {
       salaryType: emp.salaryType,
       joinDate: emp.joinDate,
       status: emp.status,
+      accountNumber: extEmp.accountNumber ?? "",
+      aadharNumber: extEmp.aadharNumber ?? "",
     });
     setDialogOpen(true);
   };
@@ -106,10 +124,29 @@ export default function EmployeesPage() {
     e.preventDefault();
     try {
       if (editEmployee) {
-        await updateMutation.mutateAsync({ id: editEmployee.id, ...form });
+        await updateMutation.mutateAsync({
+          id: editEmployee.id,
+          name: form.name,
+          phone: form.phone,
+          dept: form.dept,
+          salaryType: form.salaryType,
+          joinDate: form.joinDate,
+          status: form.status,
+          accountNumber: form.accountNumber,
+          aadharNumber: form.aadharNumber,
+        });
         toast.success("Employee updated successfully");
       } else {
-        await addMutation.mutateAsync(form);
+        await addMutation.mutateAsync({
+          name: form.name,
+          phone: form.phone,
+          dept: form.dept,
+          salaryType: form.salaryType,
+          joinDate: form.joinDate,
+          status: form.status,
+          accountNumber: form.accountNumber,
+          aadharNumber: form.aadharNumber,
+        });
         toast.success("Employee added successfully");
       }
       setDialogOpen(false);
@@ -290,8 +327,14 @@ export default function EmployeesPage() {
                     setForm((f) => ({ ...f, dept: e.target.value }))
                   }
                   required
-                  placeholder="e.g. Stitching"
+                  placeholder="e.g. Finishing"
+                  list="dept-suggestions"
                 />
+                <datalist id="dept-suggestions">
+                  {DEPT_SUGGESTIONS.map((d) => (
+                    <option key={d} value={d} />
+                  ))}
+                </datalist>
               </div>
               <div className="space-y-1.5">
                 <Label>Salary Type *</Label>
@@ -335,6 +378,32 @@ export default function EmployeesPage() {
                     setForm((f) => ({ ...f, joinDate: e.target.value }))
                   }
                   required
+                />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label htmlFor="emp-account">Account Number</Label>
+                <Input
+                  id="emp-account"
+                  data-ocid="employee.account_number.input"
+                  value={form.accountNumber}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, accountNumber: e.target.value }))
+                  }
+                  placeholder="Bank account number"
+                />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label htmlFor="emp-aadhar">Aadhaar Number</Label>
+                <Input
+                  id="emp-aadhar"
+                  data-ocid="employee.aadhar_number.input"
+                  value={form.aadharNumber}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, aadharNumber: e.target.value }))
+                  }
+                  placeholder="12-digit Aadhaar number"
+                  maxLength={12}
+                  inputMode="numeric"
                 />
               </div>
             </div>

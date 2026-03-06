@@ -58,6 +58,123 @@ interface SyncPayload {
   bundles?: unknown[];
 }
 
+// ── Supervisor Upload (entries + attendance → admin) ───────────────────────────
+
+export interface UploadPayload {
+  type: "supervisor_upload";
+  supervisorUsername: string;
+  productionEntries: unknown[];
+  attendance: unknown[];
+}
+
+/** Supervisor calls this to get a code containing their production data */
+export function exportUploadCode(supervisorUsername: string): string {
+  function getRaw(key: string): unknown[] {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return [];
+      return JSON.parse(raw) as unknown[];
+    } catch {
+      return [];
+    }
+  }
+  const payload: UploadPayload = {
+    type: "supervisor_upload",
+    supervisorUsername,
+    productionEntries: getRaw("pc_erp_production"),
+    attendance: getRaw("pc_erp_attendance"),
+  };
+  return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+}
+
+/** Admin calls this to merge supervisor's entries into their local store */
+export function importUploadCode(code: string): {
+  ok: boolean;
+  entriesAdded: number;
+  attendanceAdded: number;
+  error?: string;
+} {
+  try {
+    const jsonStr = decodeURIComponent(escape(atob(code.trim())));
+    const payload = JSON.parse(jsonStr) as UploadPayload;
+
+    if (payload.type !== "supervisor_upload") {
+      return {
+        ok: false,
+        entriesAdded: 0,
+        attendanceAdded: 0,
+        error:
+          "This looks like a master sync code, not a supervisor upload code. Ask the supervisor to use 'Upload Entries' button.",
+      };
+    }
+
+    const PRODUCTION_KEY = "pc_erp_production";
+    const ATTENDANCE_KEY = "pc_erp_attendance";
+
+    // Merge production entries (by id, no duplicates)
+    let entriesAdded = 0;
+    if (payload.productionEntries && Array.isArray(payload.productionEntries)) {
+      const existingRaw: unknown[] = (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem(PRODUCTION_KEY) ?? "[]",
+          ) as unknown[];
+        } catch {
+          return [];
+        }
+      })();
+      const existingIds = new Set(
+        (existingRaw as Array<{ id?: string }>).map((e) => e.id),
+      );
+      const incoming = payload.productionEntries as Array<{ id?: string }>;
+      const toAdd = incoming.filter((e) => e.id && !existingIds.has(e.id));
+      const merged = [...existingRaw, ...toAdd];
+      localStorage.setItem(PRODUCTION_KEY, JSON.stringify(merged));
+      entriesAdded = toAdd.length;
+    }
+
+    // Merge attendance (by id, no duplicates)
+    let attendanceAdded = 0;
+    if (payload.attendance && Array.isArray(payload.attendance)) {
+      const existingRaw: unknown[] = (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem(ATTENDANCE_KEY) ?? "[]",
+          ) as unknown[];
+        } catch {
+          return [];
+        }
+      })();
+      const existingIds = new Set(
+        (existingRaw as Array<{ id?: string }>).map((a) => a.id),
+      );
+      const incoming = payload.attendance as Array<{ id?: string }>;
+      const toAdd = incoming.filter((a) => a.id && !existingIds.has(a.id));
+      // Also update existing attendance records (same id may be updated)
+      const existingMapped = new Map(
+        (existingRaw as Array<{ id?: string }>).map((a) => [a.id, a]),
+      );
+      for (const a of incoming) {
+        if (a.id) existingMapped.set(a.id, a);
+      }
+      localStorage.setItem(
+        ATTENDANCE_KEY,
+        JSON.stringify(Array.from(existingMapped.values())),
+      );
+      attendanceAdded = toAdd.length;
+    }
+
+    return { ok: true, entriesAdded, attendanceAdded };
+  } catch {
+    return {
+      ok: false,
+      entriesAdded: 0,
+      attendanceAdded: 0,
+      error: "Invalid upload code format",
+    };
+  }
+}
+
 // Export all supervisor accounts + master data as a base64 sync code
 export function exportSyncCode(): string {
   const supervisors = getSupervisors();

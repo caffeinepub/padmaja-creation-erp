@@ -67,6 +67,8 @@ export function useAddEmployee() {
       salaryType: string;
       joinDate: string;
       status: string;
+      accountNumber: string;
+      aadharNumber: string;
     }): Promise<string> => {
       return employeeStore.add({
         name: data.name,
@@ -75,6 +77,8 @@ export function useAddEmployee() {
         salaryType: data.salaryType,
         joinDate: data.joinDate,
         status: data.status,
+        accountNumber: data.accountNumber,
+        aadharNumber: data.aadharNumber,
       });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
@@ -92,6 +96,8 @@ export function useUpdateEmployee() {
       salaryType: string;
       joinDate: string;
       status: string;
+      accountNumber: string;
+      aadharNumber: string;
     }): Promise<void> => {
       employeeStore.update(data.id, {
         name: data.name,
@@ -100,6 +106,8 @@ export function useUpdateEmployee() {
         salaryType: data.salaryType,
         joinDate: data.joinDate,
         status: data.status,
+        accountNumber: data.accountNumber,
+        aadharNumber: data.aadharNumber,
       });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
@@ -370,6 +378,18 @@ export function useUpdateAttendance() {
       attendanceStore.update(data.id, data.date, data.employeeId, data.status);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["attendance"] }),
+  });
+}
+
+export function useGetAttendanceByMonth(month: string) {
+  return useQuery<Attendance[]>({
+    queryKey: ["attendance", "month", month],
+    queryFn: async () => {
+      if (!month) return [];
+      return attendanceStore.getAll().filter((a) => a.date.startsWith(month));
+    },
+    enabled: !!month,
+    staleTime: 0,
   });
 }
 

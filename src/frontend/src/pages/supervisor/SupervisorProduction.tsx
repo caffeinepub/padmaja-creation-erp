@@ -59,7 +59,7 @@ export default function SupervisorProduction() {
   const addEntryMutation = useAddProductionEntry();
 
   const employees = (employeesQuery.data ?? []).filter(
-    (e) => e.status === "Active",
+    (e) => e.status === "Active" && e.salaryType === "Piece Rate",
   );
   const operations = operationsQuery.data ?? [];
   const opMap = new Map(operations.map((o) => [o.id, o]));
@@ -168,20 +168,31 @@ export default function SupervisorProduction() {
 
         {/* Employee */}
         <div className="space-y-1.5">
-          <Label>Employee *</Label>
+          <Label>
+            Employee *{" "}
+            <span className="text-xs font-normal text-muted-foreground">
+              (Piece Rate only)
+            </span>
+          </Label>
           <Select value={employeeId} onValueChange={setEmployeeId}>
             <SelectTrigger
               data-ocid="production.employee.select"
               className="text-base"
             >
-              <SelectValue placeholder="Select employee..." />
+              <SelectValue placeholder="Select piece rate employee..." />
             </SelectTrigger>
             <SelectContent>
-              {employees.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.name} — {e.department}
-                </SelectItem>
-              ))}
+              {employees.length === 0 ? (
+                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                  No piece rate employees found
+                </div>
+              ) : (
+                employees.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.name} — {e.department}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>

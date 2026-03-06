@@ -36,6 +36,7 @@ export default function ProductionPage() {
   const [filterDate, setFilterDate] = useState("");
   const [filterEmployee, setFilterEmployee] = useState("all");
   const [filterBundle, setFilterBundle] = useState("all");
+  const [filterSalaryType, setFilterSalaryType] = useState("all");
 
   const entries = entriesQuery.data ?? [];
   const employees = employeesQuery.data ?? [];
@@ -44,11 +45,19 @@ export default function ProductionPage() {
   const empMap = new Map(employees.map((e) => [e.id, e.name]));
   const opMap = new Map(operations.map((o) => [o.id, o.name]));
 
+  const filteredEmployees =
+    filterSalaryType === "all"
+      ? employees
+      : employees.filter((e) => e.salaryType === filterSalaryType);
+  const filteredEmpIds = new Set(filteredEmployees.map((e) => e.id));
+
   const filtered = entries.filter((e) => {
     if (filterDate && e.date !== filterDate) return false;
     if (filterEmployee !== "all" && e.employeeId !== filterEmployee)
       return false;
     if (filterBundle !== "all" && e.bundleId !== filterBundle) return false;
+    if (filterSalaryType !== "all" && !filteredEmpIds.has(e.employeeId))
+      return false;
     return true;
   });
 
@@ -72,7 +81,7 @@ export default function ProductionPage() {
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Filters */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Date</Label>
           <Input
@@ -83,6 +92,19 @@ export default function ProductionPage() {
           />
         </div>
         <div className="space-y-1">
+          <Label className="text-xs">Salary Type</Label>
+          <Select value={filterSalaryType} onValueChange={setFilterSalaryType}>
+            <SelectTrigger data-ocid="production.salary_type.select">
+              <SelectValue placeholder="All types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="Piece Rate">Piece Rate</SelectItem>
+              <SelectItem value="Monthly">Monthly</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
           <Label className="text-xs">Employee</Label>
           <Select value={filterEmployee} onValueChange={setFilterEmployee}>
             <SelectTrigger>
@@ -90,7 +112,7 @@ export default function ProductionPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Employees</SelectItem>
-              {employees.map((e) => (
+              {filteredEmployees.map((e) => (
                 <SelectItem key={e.id} value={e.id}>
                   {e.name}
                 </SelectItem>
@@ -151,6 +173,93 @@ export default function ProductionPage() {
           </div>
         </div>
       )}
+
+      {/* Employee-wise Placed Pieces Summary */}
+      {filtered.length > 0 &&
+        (() => {
+          // Group filtered entries by employeeId
+          const empSummary = new Map<
+            string,
+            { pieces: number; amount: number }
+          >();
+          for (const e of filtered) {
+            const existing = empSummary.get(e.employeeId) ?? {
+              pieces: 0,
+              amount: 0,
+            };
+            empSummary.set(e.employeeId, {
+              pieces: existing.pieces + Number(e.quantity),
+              amount: existing.amount + e.amount,
+            });
+          }
+          // Sort by pieces descending
+          const sorted = Array.from(empSummary.entries())
+            .map(([empId, data]) => ({
+              empId,
+              name: empMap.get(empId) ?? empId,
+              ...data,
+            }))
+            .sort((a, b) => b.pieces - a.pieces);
+
+          return (
+            <div
+              className="rounded-lg border border-border overflow-hidden bg-card shadow-card"
+              data-ocid="production.placed_pieces.section"
+            >
+              <div className="px-4 py-3 bg-muted/40 border-b border-border">
+                <h3 className="font-display font-semibold text-sm text-foreground flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                  Placed Pieces Summary — Employee Wise
+                </h3>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="w-8 text-xs">#</TableHead>
+                    <TableHead className="text-xs">Employee Name</TableHead>
+                    <TableHead className="text-right text-xs">
+                      Total Pieces Placed
+                    </TableHead>
+                    <TableHead className="text-right text-xs">
+                      Total Amount (₹)
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sorted.map((row, i) => (
+                    <TableRow
+                      key={row.empId}
+                      data-ocid={`production.placed_pieces.item.${i + 1}`}
+                      className={i === 0 ? "bg-primary/5" : ""}
+                    >
+                      <TableCell className="text-xs text-muted-foreground font-mono">
+                        {i + 1}
+                      </TableCell>
+                      <TableCell className="font-medium text-sm">
+                        {row.name}
+                        {i === 0 && (
+                          <span className="ml-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                            Top
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm font-semibold">
+                        {row.pieces.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-sm">
+                        ₹
+                        {row.amount.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          );
+        })()}
 
       <div className="rounded-lg border border-border overflow-hidden bg-card shadow-card">
         <Table>

@@ -41,8 +41,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Copy,
+  Download,
   Edit2,
   Eye,
   EyeOff,
@@ -52,12 +55,13 @@ import {
   Share2,
   Shield,
   Trash2,
+  Upload,
   UserCog,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { SupervisorAccount } from "../../hooks/useAuth";
-import { exportSyncCode } from "../../hooks/useAuth";
+import { exportSyncCode, importUploadCode } from "../../hooks/useAuth";
 import { useSupervisors } from "../../hooks/useSupervisors";
 
 interface FormState {
@@ -77,8 +81,13 @@ const emptyForm: FormState = {
 export default function SupervisorsPage() {
   const { supervisors, createSupervisor, updateSupervisor, deleteSupervisor } =
     useSupervisors();
+  const queryClient = useQueryClient();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importCode, setImportCode] = useState("");
+  const [importError, setImportError] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
   const [editingSupervisor, setEditingSupervisor] =
     useState<SupervisorAccount | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -92,6 +101,35 @@ export default function SupervisorsPage() {
 
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleOpenImport = () => {
+    setImportCode("");
+    setImportError("");
+    setImportOpen(true);
+  };
+
+  const handleImportEntries = () => {
+    setImportError("");
+    if (!importCode.trim()) {
+      setImportError("Please paste the upload code from the supervisor.");
+      return;
+    }
+    setIsImporting(true);
+    setTimeout(() => {
+      const result = importUploadCode(importCode);
+      setIsImporting(false);
+      if (result.ok) {
+        void queryClient.invalidateQueries();
+        toast.success(
+          `Import successful! ${result.entriesAdded} new production entries and ${result.attendanceAdded} attendance records added.`,
+        );
+        setImportCode("");
+        setImportOpen(false);
+      } else {
+        setImportError(result.error ?? "Failed to import upload code.");
+      }
+    }, 200);
   };
 
   const handleCopySyncCode = async () => {
@@ -188,7 +226,26 @@ export default function SupervisorsPage() {
             Create and manage supervisor accounts for the production team.
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+          <Button
+            data-ocid="supervisors.import_entries_button"
+            variant="outline"
+            onClick={handleOpenImport}
+            className="hidden sm:flex gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+          >
+            <Download className="w-4 h-4" />
+            Import Entries
+          </Button>
+          <Button
+            data-ocid="supervisors.import_entries_button_mobile"
+            variant="outline"
+            size="sm"
+            onClick={handleOpenImport}
+            className="sm:hidden border-primary/40 text-primary hover:bg-primary/10"
+            title="Import Supervisor Entries"
+          >
+            <Download className="w-4 h-4" />
+          </Button>
           <Button
             data-ocid="supervisors.sync_button"
             variant="outline"
@@ -255,6 +312,65 @@ export default function SupervisorsPage() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Import entries info card */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Upload className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold text-foreground">
+                Get Production Entries from Supervisors
+              </CardTitle>
+              <CardDescription className="text-sm text-muted-foreground mt-1">
+                Supervisors submit production on their phones. Use this to pull
+                their entries into your Admin panel.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
+            <li>
+              Supervisor opens the app on their phone and taps the{" "}
+              <span className="font-semibold text-foreground">
+                Upload icon (arrow up)
+              </span>{" "}
+              in the top bar.
+            </li>
+            <li>
+              They tap{" "}
+              <span className="font-semibold text-foreground">
+                "Copy Upload Code"
+              </span>{" "}
+              and send the code to you via WhatsApp.
+            </li>
+            <li>
+              You click{" "}
+              <span className="font-semibold text-foreground">
+                "Import Entries"
+              </span>{" "}
+              above, paste the code, and click Import.
+            </li>
+            <li>
+              All their production entries and attendance will appear in the
+              Production and Attendance pages immediately.
+            </li>
+          </ol>
+          <Button
+            data-ocid="supervisors.import_card_button"
+            variant="outline"
+            size="sm"
+            onClick={handleOpenImport}
+            className="mt-4 border-primary/30 text-primary hover:bg-primary/10"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            Import Entries Now
+          </Button>
         </CardContent>
       </Card>
 
@@ -459,6 +575,78 @@ export default function SupervisorsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Import Entries Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent
+          data-ocid="supervisors.import_dialog"
+          className="sm:max-w-sm"
+        >
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Download className="w-5 h-5 text-primary" />
+              Import Supervisor Entries
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-sm text-muted-foreground">
+              Ask your supervisor to tap the <strong>Upload icon</strong> on
+              their phone, copy the upload code, and send it to you. Paste it
+              below.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="import-code" className="text-sm font-medium">
+                Upload Code from Supervisor
+              </Label>
+              <Textarea
+                id="import-code"
+                data-ocid="supervisors.import_textarea"
+                placeholder="Paste upload code here..."
+                value={importCode}
+                onChange={(e) => {
+                  setImportCode(e.target.value);
+                  if (importError) setImportError("");
+                }}
+                className="text-sm font-mono resize-none h-24 bg-background"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </div>
+            {importError && (
+              <div
+                data-ocid="supervisors.import_error_state"
+                className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs"
+                role="alert"
+              >
+                {importError}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              data-ocid="supervisors.import_cancel_button"
+              onClick={() => setImportOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-ocid="supervisors.import_submit_button"
+              onClick={handleImportEntries}
+              disabled={isImporting || !importCode.trim()}
+              className="gap-2"
+            >
+              {isImporting ? (
+                <Upload className="w-4 h-4 animate-pulse" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {isImporting ? "Importing..." : "Import Entries"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

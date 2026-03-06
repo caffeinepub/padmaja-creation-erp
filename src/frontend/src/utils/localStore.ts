@@ -54,14 +54,24 @@ function saveAll<T>(key: string, items: T[]): void {
   localStorage.setItem(key, JSON.stringify(items));
 }
 
+// ── Extended Employee (with local-only fields) ────────────────────────────────
+export interface ExtendedEmployee extends Employee {
+  accountNumber: string;
+  aadharNumber: string;
+}
+
 // ── Serialization helpers (bigint ↔ number) ────────────────────────────────────
 // localStorage JSON doesn't support bigint, so we store as number strings and convert back
-function serializeEmployee(e: Employee): object {
+function serializeEmployee(e: ExtendedEmployee): object {
   return { ...e };
 }
 
-function deserializeEmployee(e: object): Employee {
-  return e as Employee;
+function deserializeEmployee(e: Record<string, unknown>): ExtendedEmployee {
+  return {
+    ...(e as unknown as Employee),
+    accountNumber: String(e.accountNumber ?? ""),
+    aadharNumber: String(e.aadharNumber ?? ""),
+  };
 }
 
 function serializeOperation(o: Operation): object {
@@ -101,24 +111,45 @@ function deserializeProductionEntry(
 
 // ── Employees ─────────────────────────────────────────────────────────────────
 export const employeeStore = {
-  getAll(): Employee[] {
+  getAll(): ExtendedEmployee[] {
     return getAll<Record<string, unknown>>(KEYS.employees).map(
       deserializeEmployee,
     );
   },
-  add(data: Omit<Employee, "id">): string {
+  add(
+    data: Omit<Employee, "id"> & {
+      accountNumber?: string;
+      aadharNumber?: string;
+    },
+  ): string {
     const id = nextId("employee", "EMP");
-    const employee: Employee = { id, ...data };
+    const employee: ExtendedEmployee = {
+      id,
+      ...data,
+      accountNumber: data.accountNumber ?? "",
+      aadharNumber: data.aadharNumber ?? "",
+    };
     const all = employeeStore.getAll();
     all.push(employee);
     saveAll(KEYS.employees, all.map(serializeEmployee));
     return id;
   },
-  update(id: string, data: Omit<Employee, "id">): void {
+  update(
+    id: string,
+    data: Omit<Employee, "id"> & {
+      accountNumber?: string;
+      aadharNumber?: string;
+    },
+  ): void {
     const all = employeeStore.getAll();
     const idx = all.findIndex((e) => e.id === id);
     if (idx === -1) throw new Error("Employee not found");
-    all[idx] = { id, ...data };
+    all[idx] = {
+      id,
+      ...data,
+      accountNumber: data.accountNumber ?? "",
+      aadharNumber: data.aadharNumber ?? "",
+    };
     saveAll(KEYS.employees, all.map(serializeEmployee));
   },
   delete(id: string): void {
