@@ -1,58 +1,32 @@
 # Padmaja Creation ERP
 
 ## Current State
-New project. No existing modules. Standard Caffeine scaffold with empty backend and frontend.
+
+The app uses local username/password auth (no Internet Identity). All data — employees, operations, bundles, production entries, attendance — is stored in `localStorage` via `localStore.ts`. The ICP backend (`main.mo`) exists with all CRUD APIs but is NOT being used for data storage. This means data is per-device: when Admin adds employees/operations/bundles on their browser, supervisors on other devices see nothing.
+
+The sync code currently only contains supervisor account credentials (no master data).
 
 ## Requested Changes (Diff)
 
 ### Add
-
-**Backend (Motoko)**
-- Employee management: CRUD for employees (id, name, phone, department, salaryType, joinDate, status)
-- Operation management: CRUD for operations (id, name, ratePerPiece, department, dailyTarget)
-- Bundle management: CRUD for bundles (id auto-generated as B+number, styleNumber, size, color, quantity, createdDate, status Running/Completed)
-- Production entry: create/query entries (date, employeeId, operationId, bundleId, quantity, rate, amount calculated = qty × rate)
-- Attendance: mark/query daily attendance (date, employeeId, status: Present/Absent/HalfDay)
-- Targets: set/query daily targets per operation
-- Dashboard queries: total production today, total running bundles, total employees working today, top performers, low performers, operator efficiency, target vs actual
-- Salary automation: monthly salary calculation = Σ(quantity × rate) per employee filtered by month
-- Bundle tracking: per-bundle operation progress (which operations completed vs pending)
-- Role-based access: Admin and Supervisor roles via authorization component
-- QR code: generate QR per bundle containing Bundle ID
-
-**Frontend**
-- Login page (Admin + Supervisor)
-- Admin Dashboard: KPI cards (production today, running bundles, employees working, top/low performer), operator ranking table, efficiency table, target vs production table
-- Admin: Employee Management (list, add, edit, delete)
-- Admin: Operation Management (list, add, edit, delete)
-- Admin: Bundle Management (list, add, edit, delete, QR code display + print label)
-- Admin: Production Entries (list view with filters by date/employee/bundle)
-- Admin: Attendance view (read-only overview)
-- Admin: Bundle Progress Tracker (per-bundle operation status)
-- Admin: Salary Report (monthly salary sheet per employee)
-- Admin: Excel Export (Production Report, Salary Report, Monthly Production Report by operation/employee/bundle)
-- Supervisor Panel (mobile-first): Mark Attendance, Enter Production (multi-operation per employee, QR scan for bundle), View own entries
-- QR Scanner integration using camera for bundle ID auto-fill
+- Shared data sync: employees, operations, and bundles created by Admin must be visible to supervisors on any device
+- Auto-embed shared master data (employees, operations, bundles) into the sync code so supervisors receive them on import
+- "Refresh Data" button in supervisor layout to re-import latest master data without re-entering credentials
+- Auto-sync trigger: any time Admin saves/edits/deletes an employee, operation, or bundle, the shared data payload in localStorage is updated automatically
 
 ### Modify
-- None (new project)
+- `exportSyncCode` in `useAuth.ts`: include employees, operations, and bundles in the exported payload alongside supervisor accounts
+- `importSyncCode` in `useAuth.ts`: also import employees, operations, bundles from the payload into `localStorage`
+- `SupervisorLayout.tsx`: add a "Refresh Data" UI trigger that allows supervisors to re-import updated master data using a new sync code from Admin
+- Admin pages (EmployeesPage, OperationsPage, BundlesPage): after any create/update/delete, automatically update a shared sync payload in localStorage so Admin can always export the latest sync code
 
 ### Remove
-- None
+- Nothing removed
 
 ## Implementation Plan
 
-1. Select Caffeine components: authorization, qr-code
-2. Generate Motoko backend with all collections: Employees, Operations, Bundles, ProductionEntries, Attendance, Targets
-3. Frontend: login/auth flow with role routing
-4. Frontend: Admin dashboard with real-time KPI cards and performance tables
-5. Frontend: Employee, Operation, Bundle management modules with full CRUD
-6. Frontend: Bundle QR code generation and printable label
-7. Frontend: Production Entry with multi-operation rows, auto rate loading, running total
-8. Frontend: QR scanner on supervisor production entry screen
-9. Frontend: Attendance marking (supervisor) and overview (admin)
-10. Frontend: Bundle progress tracker showing operation completion status
-11. Frontend: Salary automation - monthly calculation and salary sheet
-12. Frontend: Excel export for production report, salary report, monthly report
-13. Frontend: Supervisor mobile-optimized panel (attendance + production + QR scan)
-14. Apply OKLCH design system, responsive layout, mobile-first for supervisor views
+1. **Enhance sync code format**: Change the sync payload from `SupervisorAccount[]` to `{ supervisors: SupervisorAccount[], employees: Employee[], operations: Operation[], bundles: Bundle[] }`. Make it backward-compatible.
+2. **Update `exportSyncCode`**: Read employees, operations, bundles from `localStore` and embed them in the exported base64 payload.
+3. **Update `importSyncCode`**: After importing supervisors, also write employees/operations/bundles to `localStore` storage keys so they appear immediately in the supervisor app.
+4. **Supervisor refresh flow**: Add a "Sync Data" option in SupervisorLayout that shows a modal where supervisors can paste a new sync code to pull the latest employees/operations/bundles from Admin.
+5. **Auto-sync on Admin writes**: After any mutation in EmployeesPage/OperationsPage/BundlesPage succeeds, the data is already in localStorage — so the next `exportSyncCode` call will automatically include it. No extra work needed here.

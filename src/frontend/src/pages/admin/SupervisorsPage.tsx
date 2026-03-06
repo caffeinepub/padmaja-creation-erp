@@ -267,11 +267,12 @@ export default function SupervisorsPage() {
             </div>
             <div>
               <CardTitle className="text-base font-semibold text-foreground">
-                How to Share Supervisor Login
+                How to Share with Supervisors
               </CardTitle>
               <CardDescription className="text-sm text-muted-foreground mt-1">
-                Supervisor accounts are stored on this device. To let
-                supervisors log in on their phone, you must share a sync code.
+                The sync code includes supervisor accounts AND all employees,
+                operations, and bundles — so supervisors see everything you have
+                added.
               </CardDescription>
             </div>
           </div>
@@ -283,7 +284,8 @@ export default function SupervisorsPage() {
               <span className="font-semibold text-foreground">
                 "Copy Sync Code"
               </span>{" "}
-              above to copy a code containing all supervisor accounts.
+              above. This includes all supervisor accounts, employees,
+              operations, and bundles.
             </li>
             <li>
               Send the code to your supervisor via{" "}
@@ -293,15 +295,18 @@ export default function SupervisorsPage() {
               .
             </li>
             <li>
-              On their phone, they open the app login page, tap{" "}
+              First time: supervisor opens the app login page, taps{" "}
               <span className="font-semibold text-foreground">
                 "First time? Import sync code"
               </span>
-              , paste the code, and tap Import.
+              , pastes the code, and taps Import.
             </li>
             <li>
-              After import they can log in normally with their username and
-              password.
+              Whenever you add new employees or operations,{" "}
+              <span className="font-semibold text-foreground">
+                copy a fresh sync code and send again
+              </span>
+              . Supervisor uses "Refresh Data" in the app to update.
             </li>
           </ol>
           <Button
