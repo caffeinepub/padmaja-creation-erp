@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import {
   CalendarCheck,
   ClipboardList,
@@ -6,8 +5,7 @@ import {
   List,
   LogOut,
 } from "lucide-react";
-import { useInternetIdentity } from "../../hooks/useInternetIdentity";
-import { useGetCallerUserProfile } from "../../hooks/useQueries";
+import { useAuth } from "../../hooks/useAuth";
 import SupervisorAttendance from "./SupervisorAttendance";
 import SupervisorMyEntries from "./SupervisorMyEntries";
 import SupervisorProduction from "./SupervisorProduction";
@@ -54,13 +52,10 @@ export default function SupervisorLayout({
   currentPath,
   navigate,
 }: SupervisorLayoutProps) {
-  const { clear } = useInternetIdentity();
-  const queryClient = useQueryClient();
-  const { data: profile } = useGetCallerUserProfile();
+  const { session, logout } = useAuth();
 
-  const handleLogout = async () => {
-    await clear();
-    queryClient.clear();
+  const handleLogout = () => {
+    logout();
   };
 
   return (
@@ -82,7 +77,7 @@ export default function SupervisorLayout({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground hidden sm:block">
-            {profile?.name}
+            {session?.name}
           </span>
           <button
             type="button"

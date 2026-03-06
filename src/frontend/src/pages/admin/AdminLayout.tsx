@@ -16,11 +16,11 @@ import {
   Menu,
   Package,
   Target,
+  UserCog,
   Users,
 } from "lucide-react";
 import { useState } from "react";
-import { useInternetIdentity } from "../../hooks/useInternetIdentity";
-import { useGetCallerUserProfile } from "../../hooks/useQueries";
+import { useAuth } from "../../hooks/useAuth";
 
 // Admin page imports
 import AdminDashboard from "./AdminDashboard";
@@ -32,6 +32,7 @@ import OperationsPage from "./OperationsPage";
 import ProductionPage from "./ProductionPage";
 import ReportsPage from "./ReportsPage";
 import SalaryPage from "./SalaryPage";
+import SupervisorsPage from "./SupervisorsPage";
 import TargetsPage from "./TargetsPage";
 
 interface NavItem {
@@ -102,6 +103,12 @@ const navItems: NavItem[] = [
     icon: Target,
     ocid: "nav.targets.link",
   },
+  {
+    label: "Supervisors",
+    path: "/admin/supervisors",
+    icon: UserCog,
+    ocid: "nav.supervisors.link",
+  },
 ];
 
 interface AdminLayoutProps {
@@ -119,6 +126,7 @@ function renderPage(currentPath: string) {
   if (currentPath === "/admin/salary") return <SalaryPage />;
   if (currentPath === "/admin/reports") return <ReportsPage />;
   if (currentPath === "/admin/targets") return <TargetsPage />;
+  if (currentPath === "/admin/supervisors") return <SupervisorsPage />;
   return <AdminDashboard />;
 }
 
@@ -131,17 +139,16 @@ function SidebarContent({
   navigate: (path: string) => void;
   onClose?: () => void;
 }) {
-  const { clear } = useInternetIdentity();
+  const { session, logout } = useAuth();
   const queryClient = useQueryClient();
-  const { data: profile } = useGetCallerUserProfile();
 
   const handleNav = (path: string) => {
     navigate(path);
     onClose?.();
   };
 
-  const handleLogout = async () => {
-    await clear();
+  const handleLogout = () => {
+    logout();
     queryClient.clear();
   };
 
@@ -195,11 +202,11 @@ function SidebarContent({
       <div className="p-3 border-t border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
           <div className="w-7 h-7 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-xs font-bold text-sidebar-primary">
-            {profile?.name?.charAt(0)?.toUpperCase() ?? "A"}
+            {session?.name?.charAt(0)?.toUpperCase() ?? "A"}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold text-sidebar-foreground truncate">
-              {profile?.name ?? "Admin"}
+              {session?.name ?? "Admin"}
             </div>
             <div className="text-xs text-sidebar-foreground/40">
               Administrator

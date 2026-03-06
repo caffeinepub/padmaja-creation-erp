@@ -52,7 +52,7 @@ export default function ProductionPage() {
     return true;
   });
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const data = filtered.map((e) => ({
       Date: e.date,
       Employee: empMap.get(e.employeeId) ?? e.employeeId,
@@ -62,7 +62,7 @@ export default function ProductionPage() {
       "Rate (₹)": e.rate,
       "Amount (₹)": e.amount,
     }));
-    exportToExcel(
+    await exportToExcel(
       data,
       `production_report_${new Date().toISOString().split("T")[0]}.xlsx`,
       "Production",

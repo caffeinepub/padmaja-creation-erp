@@ -1,23 +1,12 @@
 import { Toaster } from "@/components/ui/sonner";
 import { useEffect, useState } from "react";
-import { UserRole } from "./backend.d";
-import LoadingScreen from "./components/LoadingScreen";
-import ProfileSetupModal from "./components/ProfileSetupModal";
-import { useInternetIdentity } from "./hooks/useInternetIdentity";
-import {
-  useGetCallerUserProfile,
-  useGetCallerUserRole,
-} from "./hooks/useQueries";
+import { useAuth } from "./hooks/useAuth";
 import LoginPage from "./pages/LoginPage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import SupervisorLayout from "./pages/supervisor/SupervisorLayout";
 
 export default function App() {
-  const { identity, isInitializing } = useInternetIdentity();
-  const isAuthenticated = !!identity;
-
-  const profileQuery = useGetCallerUserProfile();
-  const roleQuery = useGetCallerUserRole();
+  const { session } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
   useEffect(() => {
@@ -31,73 +20,50 @@ export default function App() {
     setCurrentPath(path);
   };
 
-  // Show loading while initializing
-  if (
-    isInitializing ||
-    (isAuthenticated && (profileQuery.isLoading || roleQuery.isLoading))
-  ) {
-    return <LoadingScreen />;
-  }
-
   // Not logged in → login page
-  if (!isAuthenticated) {
+  if (!session) {
     return (
       <>
-        <LoginPage />
+        <LoginPage onLogin={(path) => navigate(path)} />
         <Toaster richColors />
       </>
     );
   }
 
-  // Logged in but no profile → show profile setup
-  const showProfileSetup =
-    isAuthenticated &&
-    !profileQuery.isLoading &&
-    profileQuery.isFetched &&
-    profileQuery.data === null;
-
-  if (showProfileSetup) {
-    return (
-      <>
-        <ProfileSetupModal />
-        <Toaster richColors />
-      </>
-    );
-  }
-
-  const role = roleQuery.data;
-
-  // Redirect logic based on path and role
-  if (role === UserRole.admin || profileQuery.data?.role === "admin") {
+  // Admin role
+  if (session.role === "admin") {
+    const adminPath = currentPath.startsWith("/admin") ? currentPath : "/admin";
     if (!currentPath.startsWith("/admin")) {
-      navigate("/admin");
-      return <LoadingScreen />;
+      window.history.replaceState({}, "", "/admin");
     }
     return (
       <>
-        <AdminLayout currentPath={currentPath} navigate={navigate} />
+        <AdminLayout currentPath={adminPath} navigate={navigate} />
         <Toaster richColors />
       </>
     );
   }
 
-  if (role === UserRole.user || profileQuery.data?.role === "supervisor") {
+  // Supervisor role
+  if (session.role === "supervisor") {
+    const supervisorPath = currentPath.startsWith("/supervisor")
+      ? currentPath
+      : "/supervisor";
     if (!currentPath.startsWith("/supervisor")) {
-      navigate("/supervisor");
-      return <LoadingScreen />;
+      window.history.replaceState({}, "", "/supervisor");
     }
     return (
       <>
-        <SupervisorLayout currentPath={currentPath} navigate={navigate} />
+        <SupervisorLayout currentPath={supervisorPath} navigate={navigate} />
         <Toaster richColors />
       </>
     );
   }
 
-  // Guest / no role assigned yet
+  // Fallback
   return (
     <>
-      <LoadingScreen message="Setting up your account..." />
+      <LoginPage onLogin={(path) => navigate(path)} />
       <Toaster richColors />
     </>
   );

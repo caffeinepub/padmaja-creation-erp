@@ -50,7 +50,7 @@ export default function ReportsPage() {
     operationsQuery.isLoading;
 
   // Report 1: Production Report
-  const exportProductionReport = () => {
+  const exportProductionReport = async () => {
     const data = entries.map((e) => ({
       Date: e.date,
       Employee: empMap.get(e.employeeId)?.name ?? e.employeeId,
@@ -60,7 +60,7 @@ export default function ReportsPage() {
       "Rate (₹)": e.rate,
       "Amount (₹)": e.amount,
     }));
-    exportToExcel(
+    await exportToExcel(
       data,
       `production_report_${new Date().toISOString().split("T")[0]}.xlsx`,
       "Production",
@@ -68,7 +68,7 @@ export default function ReportsPage() {
   };
 
   // Report 2: Employee Salary Report
-  const exportSalaryReport = () => {
+  const exportSalaryReport = async () => {
     const data = salaryData.map((r) => {
       const emp = empMap.get(r.employeeId);
       return {
@@ -79,7 +79,7 @@ export default function ReportsPage() {
         "Total Amount (₹)": r.totalAmount.toFixed(2),
       };
     });
-    exportToExcel(
+    await exportToExcel(
       data,
       `salary_report_${reportYear}_${reportMonth}.xlsx`,
       "Salary",
@@ -87,7 +87,7 @@ export default function ReportsPage() {
   };
 
   // Report 3: Monthly Production Report (3 sheets)
-  const exportMonthlyReport = () => {
+  const exportMonthlyReport = async () => {
     const yearNum = Number.parseInt(reportYear);
     const monthNum = Number.parseInt(reportMonth);
 
@@ -150,7 +150,7 @@ export default function ReportsPage() {
       };
     });
 
-    exportMultiSheetExcel(
+    await exportMultiSheetExcel(
       [
         { name: "Operation-Wise", data: opSheet as Record<string, unknown>[] },
         { name: "Employee-Wise", data: empSheet as Record<string, unknown>[] },

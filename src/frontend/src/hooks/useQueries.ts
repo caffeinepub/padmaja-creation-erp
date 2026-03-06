@@ -7,55 +7,42 @@ import type {
   ProductionEntry,
   Target,
   UserProfile,
-  UserRole,
 } from "../backend.d";
-import { useActor } from "./useActor";
+import {
+  attendanceStore,
+  bundleStore,
+  employeeStore,
+  operationStore,
+  productionStore,
+  targetStore,
+} from "../utils/localStore";
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// ── Auth (kept for compatibility, but no longer used for data) ─────────────────
 
 export function useGetCallerUserProfile() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  const query = useQuery<UserProfile | null>({
+  return useQuery<UserProfile | null>({
     queryKey: ["currentUserProfile"],
-    queryFn: async () => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.getCallerUserProfile();
-    },
-    enabled: !!actor && !actorFetching,
-    retry: false,
+    queryFn: async () => null,
+    staleTime: Number.POSITIVE_INFINITY,
   });
-
-  return {
-    ...query,
-    isLoading: actorFetching || query.isLoading,
-    isFetched: !!actor && query.isFetched,
-  };
 }
 
 export function useGetCallerUserRole() {
-  const { actor, isFetching: actorFetching } = useActor();
-  return useQuery<UserRole>({
+  return useQuery({
     queryKey: ["callerUserRole"],
-    queryFn: async () => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.getCallerUserRole();
-    },
-    enabled: !!actor && !actorFetching,
+    queryFn: async () => "user" as const,
+    staleTime: Number.POSITIVE_INFINITY,
   });
 }
 
 export function useSaveCallerUserProfile() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (profile: UserProfile) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.saveCallerUserProfile(profile);
+    mutationFn: async (_profile: UserProfile) => {
+      // no-op for local auth
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
-      void qc.invalidateQueries({ queryKey: ["callerUserRole"] });
     },
   });
 }
@@ -63,19 +50,14 @@ export function useSaveCallerUserProfile() {
 // ── Employees ─────────────────────────────────────────────────────────────────
 
 export function useGetEmployees() {
-  const { actor, isFetching } = useActor();
   return useQuery<Employee[]>({
     queryKey: ["employees"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getEmployees();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => employeeStore.getAll(),
+    staleTime: 0,
   });
 }
 
 export function useAddEmployee() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -85,23 +67,21 @@ export function useAddEmployee() {
       salaryType: string;
       joinDate: string;
       status: string;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addEmployee(
-        data.name,
-        data.phone,
-        data.dept,
-        data.salaryType,
-        data.joinDate,
-        data.status,
-      );
+    }): Promise<string> => {
+      return employeeStore.add({
+        name: data.name,
+        phone: data.phone,
+        department: data.dept,
+        salaryType: data.salaryType,
+        joinDate: data.joinDate,
+        status: data.status,
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
   });
 }
 
 export function useUpdateEmployee() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -112,29 +92,25 @@ export function useUpdateEmployee() {
       salaryType: string;
       joinDate: string;
       status: string;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.updateEmployee(
-        data.id,
-        data.name,
-        data.phone,
-        data.dept,
-        data.salaryType,
-        data.joinDate,
-        data.status,
-      );
+    }): Promise<void> => {
+      employeeStore.update(data.id, {
+        name: data.name,
+        phone: data.phone,
+        department: data.dept,
+        salaryType: data.salaryType,
+        joinDate: data.joinDate,
+        status: data.status,
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
   });
 }
 
 export function useDeleteEmployee() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.deleteEmployee(id);
+    mutationFn: async (id: string): Promise<void> => {
+      employeeStore.delete(id);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
   });
@@ -143,19 +119,14 @@ export function useDeleteEmployee() {
 // ── Operations ────────────────────────────────────────────────────────────────
 
 export function useGetOperations() {
-  const { actor, isFetching } = useActor();
   return useQuery<Operation[]>({
     queryKey: ["operations"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getOperations();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => operationStore.getAll(),
+    staleTime: 0,
   });
 }
 
 export function useAddOperation() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -163,16 +134,19 @@ export function useAddOperation() {
       rate: number;
       dept: string;
       target: bigint;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addOperation(data.name, data.rate, data.dept, data.target);
+    }): Promise<string> => {
+      return operationStore.add({
+        name: data.name,
+        ratePerPiece: data.rate,
+        department: data.dept,
+        dailyTarget: data.target,
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["operations"] }),
   });
 }
 
 export function useUpdateOperation() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -181,27 +155,23 @@ export function useUpdateOperation() {
       rate: number;
       dept: string;
       target: bigint;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.updateOperation(
-        data.id,
-        data.name,
-        data.rate,
-        data.dept,
-        data.target,
-      );
+    }): Promise<void> => {
+      operationStore.update(data.id, {
+        name: data.name,
+        ratePerPiece: data.rate,
+        department: data.dept,
+        dailyTarget: data.target,
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["operations"] }),
   });
 }
 
 export function useDeleteOperation() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.deleteOperation(id);
+    mutationFn: async (id: string): Promise<void> => {
+      operationStore.delete(id);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["operations"] }),
   });
@@ -210,19 +180,14 @@ export function useDeleteOperation() {
 // ── Bundles ───────────────────────────────────────────────────────────────────
 
 export function useGetBundles() {
-  const { actor, isFetching } = useActor();
   return useQuery<Bundle[]>({
     queryKey: ["bundles"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getBundles();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => bundleStore.getAll(),
+    staleTime: 0,
   });
 }
 
 export function useAddBundle() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -232,23 +197,21 @@ export function useAddBundle() {
       qty: bigint;
       createdDate: string;
       status: string;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addBundle(
-        data.styleNumber,
-        data.size,
-        data.color,
-        data.qty,
-        data.createdDate,
-        data.status,
-      );
+    }): Promise<string> => {
+      return bundleStore.add({
+        styleNumber: data.styleNumber,
+        size: data.size,
+        color: data.color,
+        quantity: data.qty,
+        createdDate: data.createdDate,
+        status: data.status,
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["bundles"] }),
   });
 }
 
 export function useUpdateBundle() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -259,86 +222,80 @@ export function useUpdateBundle() {
       qty: bigint;
       createdDate: string;
       status: string;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.updateBundle(
-        data.id,
-        data.styleNumber,
-        data.size,
-        data.color,
-        data.qty,
-        data.createdDate,
-        data.status,
-      );
+    }): Promise<void> => {
+      bundleStore.update(data.id, {
+        styleNumber: data.styleNumber,
+        size: data.size,
+        color: data.color,
+        quantity: data.qty,
+        createdDate: data.createdDate,
+        status: data.status,
+      });
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["bundles"] }),
   });
 }
 
 export function useDeleteBundle() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.deleteBundle(id);
+    mutationFn: async (id: string): Promise<void> => {
+      bundleStore.delete(id);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["bundles"] }),
   });
 }
 
 export function useGetBundleProgress(bundleId: string) {
-  const { actor, isFetching } = useActor();
   return useQuery<Array<{ completed: boolean; operationId: string }>>({
     queryKey: ["bundleProgress", bundleId],
     queryFn: async () => {
-      if (!actor || !bundleId) return [];
-      return actor.getBundleProgress(bundleId);
+      if (!bundleId) return [];
+      const entries = productionStore
+        .getAll()
+        .filter((e) => e.bundleId === bundleId);
+      const opSet = new Set(entries.map((e) => e.operationId));
+      return Array.from(opSet).map((opId) => ({
+        operationId: opId,
+        completed: true,
+      }));
     },
-    enabled: !!actor && !isFetching && !!bundleId,
+    enabled: !!bundleId,
+    staleTime: 0,
   });
 }
 
 // ── Production Entries ────────────────────────────────────────────────────────
 
 export function useGetProductionEntries() {
-  const { actor, isFetching } = useActor();
   return useQuery<ProductionEntry[]>({
     queryKey: ["productionEntries"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getProductionEntries();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => productionStore.getAll(),
+    staleTime: 0,
   });
 }
 
 export function useGetEntriesByDate(date: string) {
-  const { actor, isFetching } = useActor();
   return useQuery<ProductionEntry[]>({
     queryKey: ["productionEntries", "date", date],
     queryFn: async () => {
-      if (!actor || !date) return [];
-      return actor.getEntriesByDate(date);
+      if (!date) return [];
+      return productionStore.getByDate(date);
     },
-    enabled: !!actor && !isFetching && !!date,
+    enabled: !!date,
+    staleTime: 0,
   });
 }
 
 export function useGetEntriesByMonth(year: number, month: number) {
-  const { actor, isFetching } = useActor();
   return useQuery<ProductionEntry[]>({
     queryKey: ["productionEntries", "month", year, month],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getEntriesByMonth(BigInt(year), BigInt(month));
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => productionStore.getByMonth(year, month),
+    staleTime: 0,
   });
 }
 
 export function useAddProductionEntry() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -349,17 +306,16 @@ export function useAddProductionEntry() {
       qty: bigint;
       rate: number;
       amount: number;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addProductionEntry(
-        data.date,
-        data.employeeId,
-        data.operationId,
-        data.bundleId,
-        data.qty,
-        data.rate,
-        data.amount,
-      );
+    }): Promise<string> => {
+      return productionStore.add({
+        date: data.date,
+        employeeId: data.employeeId,
+        operationId: data.operationId,
+        bundleId: data.bundleId,
+        quantity: data.qty,
+        rate: data.rate,
+        amount: data.amount,
+      });
     },
     onSuccess: () =>
       void qc.invalidateQueries({ queryKey: ["productionEntries"] }),
@@ -369,47 +325,40 @@ export function useAddProductionEntry() {
 // ── Attendance ────────────────────────────────────────────────────────────────
 
 export function useGetAttendanceByDate(date: string) {
-  const { actor, isFetching } = useActor();
   return useQuery<Attendance[]>({
     queryKey: ["attendance", "date", date],
     queryFn: async () => {
-      if (!actor || !date) return [];
-      return actor.getAttendanceByDate(date);
+      if (!date) return [];
+      return attendanceStore.getByDate(date);
     },
-    enabled: !!actor && !isFetching && !!date,
+    enabled: !!date,
+    staleTime: 0,
   });
 }
 
 export function useGetAllAttendance() {
-  const { actor, isFetching } = useActor();
   return useQuery<Attendance[]>({
     queryKey: ["attendance", "all"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getAllAttendance();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => attendanceStore.getAll(),
+    staleTime: 0,
   });
 }
 
 export function useMarkAttendance() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
       date: string;
       employeeId: string;
       status: string;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.markAttendance(data.date, data.employeeId, data.status);
+    }): Promise<string> => {
+      return attendanceStore.mark(data.date, data.employeeId, data.status);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["attendance"] }),
   });
 }
 
 export function useUpdateAttendance() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -417,14 +366,8 @@ export function useUpdateAttendance() {
       date: string;
       employeeId: string;
       status: string;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.updateAttendance(
-        data.id,
-        data.date,
-        data.employeeId,
-        data.status,
-      );
+    }): Promise<void> => {
+      attendanceStore.update(data.id, data.date, data.employeeId, data.status);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["attendance"] }),
   });
@@ -433,28 +376,22 @@ export function useUpdateAttendance() {
 // ── Targets ───────────────────────────────────────────────────────────────────
 
 export function useGetTargets() {
-  const { actor, isFetching } = useActor();
   return useQuery<Target[]>({
     queryKey: ["targets"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getTargets();
-    },
-    enabled: !!actor && !isFetching,
+    queryFn: async () => targetStore.getAll(),
+    staleTime: 0,
   });
 }
 
 export function useSetTarget() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
       operationId: string;
       qty: bigint;
       date: string;
-    }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setTarget(data.operationId, data.qty, data.date);
+    }): Promise<string> => {
+      return targetStore.set(data.operationId, data.qty, data.date);
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["targets"] }),
   });
@@ -463,40 +400,69 @@ export function useSetTarget() {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export function useGetDashboardStats() {
-  const { actor, isFetching } = useActor();
   return useQuery({
     queryKey: ["dashboardStats"],
     queryFn: async () => {
-      if (!actor)
-        return { todayProduction: BigInt(0), runningBundlesCount: BigInt(0) };
-      return actor.getDashboardStats();
+      const today = new Date().toISOString().split("T")[0];
+      const todayEntries = productionStore.getByDate(today);
+      const todayProduction = BigInt(
+        todayEntries.reduce((s, e) => s + Number(e.quantity), 0),
+      );
+      const runningBundlesCount = BigInt(
+        bundleStore
+          .getAll()
+          .filter((b) => b.status === "Running" || b.status === "running")
+          .length,
+      );
+      return { todayProduction, runningBundlesCount };
     },
-    enabled: !!actor && !isFetching,
+    staleTime: 0,
   });
 }
 
 export function useGetOperatorRankingToday(todayDate: string) {
-  const { actor, isFetching } = useActor();
   return useQuery<Array<{ totalQty: bigint; employeeId: string }>>({
     queryKey: ["operatorRanking", todayDate],
     queryFn: async () => {
-      if (!actor) return [];
-      return actor.getOperatorRankingToday(todayDate);
+      if (!todayDate) return [];
+      const entries = productionStore.getByDate(todayDate);
+      const empMap = new Map<string, number>();
+      for (const e of entries) {
+        empMap.set(
+          e.employeeId,
+          (empMap.get(e.employeeId) ?? 0) + Number(e.quantity),
+        );
+      }
+      return Array.from(empMap.entries())
+        .map(([employeeId, qty]) => ({ employeeId, totalQty: BigInt(qty) }))
+        .sort((a, b) => Number(b.totalQty - a.totalQty));
     },
-    enabled: !!actor && !isFetching && !!todayDate,
+    enabled: !!todayDate,
+    staleTime: 0,
   });
 }
 
 export function useGetMonthlySalary(year: number, month: number) {
-  const { actor, isFetching } = useActor();
   return useQuery<
     Array<{ totalPieces: bigint; employeeId: string; totalAmount: number }>
   >({
     queryKey: ["monthlySalary", year, month],
     queryFn: async () => {
-      if (!actor) return [];
-      return actor.getMonthlySalary(BigInt(year), BigInt(month));
+      const entries = productionStore.getByMonth(year, month);
+      const empMap = new Map<string, { pieces: number; amount: number }>();
+      for (const e of entries) {
+        const existing = empMap.get(e.employeeId) ?? { pieces: 0, amount: 0 };
+        empMap.set(e.employeeId, {
+          pieces: existing.pieces + Number(e.quantity),
+          amount: existing.amount + e.amount,
+        });
+      }
+      return Array.from(empMap.entries()).map(([employeeId, data]) => ({
+        employeeId,
+        totalPieces: BigInt(data.pieces),
+        totalAmount: data.amount,
+      }));
     },
-    enabled: !!actor && !isFetching,
+    staleTime: 0,
   });
 }

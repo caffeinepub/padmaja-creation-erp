@@ -50,7 +50,7 @@ export default function SalaryPage() {
     "December",
   ];
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const data = salaryData.map((r) => {
       const emp = empMap.get(r.employeeId);
       return {
@@ -62,7 +62,7 @@ export default function SalaryPage() {
         "Total Amount (₹)": r.totalAmount.toFixed(2),
       };
     });
-    exportToExcel(
+    await exportToExcel(
       data,
       `salary_${MONTH_NAMES[Number.parseInt(month) - 1]}_${year}.xlsx`,
       "Salary Report",
