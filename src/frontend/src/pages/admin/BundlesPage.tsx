@@ -42,6 +42,7 @@ import {
   Plus,
   Printer,
   QrCode,
+  Search,
   Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -132,8 +133,15 @@ export default function BundlesPage() {
   const [editBundle, setEditBundle] = useState<Bundle | null>(null);
   const [form, setForm] = useState<BundleForm>(emptyForm);
   const [qrBundle, setQrBundle] = useState<Bundle | null>(null);
+  const [search, setSearch] = useState("");
 
   const bundles = bundlesQuery.data ?? [];
+  const filteredBundles = bundles.filter(
+    (b) =>
+      b.id.toLowerCase().includes(search.toLowerCase()) ||
+      b.styleNumber.toLowerCase().includes(search.toLowerCase()) ||
+      b.color.toLowerCase().includes(search.toLowerCase()),
+  );
 
   const openAdd = () => {
     setEditBundle(null);
@@ -247,11 +255,22 @@ export default function BundlesPage() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex justify-end">
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search by ID, style, or color..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            data-ocid="bundle.search_input"
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 pl-9 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
         <Button
           data-ocid="bundle.add_button"
           onClick={openAdd}
-          className="gap-2"
+          className="gap-2 shrink-0"
         >
           <Plus className="w-4 h-4" />
           Create Bundle
@@ -259,101 +278,107 @@ export default function BundlesPage() {
       </div>
 
       <div className="rounded-lg border border-border overflow-hidden bg-card shadow-card">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>Bundle ID</TableHead>
-              <TableHead>Style</TableHead>
-              <TableHead className="hidden sm:table-cell">Size</TableHead>
-              <TableHead className="hidden md:table-cell">Color</TableHead>
-              <TableHead className="hidden md:table-cell">Qty</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-32">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {bundlesQuery.isLoading ? (
-              ["s1", "s2", "s3", "s4", "s5"].slice(0, 4).map((skId) => (
-                <TableRow key={skId}>
-                  <TableCell colSpan={7}>
-                    <Skeleton className="h-8 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : bundles.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="text-center py-12 text-muted-foreground"
-                  data-ocid="bundle.empty_state"
-                >
-                  <Package className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p>No bundles created yet</p>
-                </TableCell>
+        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-muted/50">
+              <TableRow className="bg-muted/50">
+                <TableHead>Bundle ID</TableHead>
+                <TableHead>Style</TableHead>
+                <TableHead className="hidden sm:table-cell">Size</TableHead>
+                <TableHead className="hidden md:table-cell">Color</TableHead>
+                <TableHead className="hidden md:table-cell">Qty</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-32">Actions</TableHead>
               </TableRow>
-            ) : (
-              bundles.map((bundle, i) => (
-                <TableRow key={bundle.id} data-ocid={`bundle.item.${i + 1}`}>
-                  <TableCell className="font-mono text-sm font-semibold">
-                    {bundle.id}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {bundle.styleNumber}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-sm">
-                    {bundle.size}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm">
-                    {bundle.color}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell font-mono text-sm">
-                    {Number(bundle.quantity)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      className={`text-xs ${bundle.status === "Running" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}`}
-                      variant="secondary"
-                    >
-                      {bundle.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        data-ocid={`bundle.qr_button.${i + 1}`}
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setQrBundle(bundle)}
-                        title="View QR Code"
-                      >
-                        <QrCode className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        data-ocid={`bundle.edit_button.${i + 1}`}
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => openEdit(bundle)}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        data-ocid={`bundle.delete_button.${i + 1}`}
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteId(bundle.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+            </TableHeader>
+            <TableBody>
+              {bundlesQuery.isLoading ? (
+                ["s1", "s2", "s3", "s4", "s5"].slice(0, 4).map((skId) => (
+                  <TableRow key={skId}>
+                    <TableCell colSpan={7}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : filteredBundles.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-12 text-muted-foreground"
+                    data-ocid="bundle.empty_state"
+                  >
+                    <Package className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                    {search ? (
+                      <p>No bundles match &ldquo;{search}&rdquo;</p>
+                    ) : (
+                      <p>No bundles created yet</p>
+                    )}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                filteredBundles.map((bundle, i) => (
+                  <TableRow key={bundle.id} data-ocid={`bundle.item.${i + 1}`}>
+                    <TableCell className="font-mono text-sm font-semibold">
+                      {bundle.id}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {bundle.styleNumber}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm">
+                      {bundle.size}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm">
+                      {bundle.color}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell font-mono text-sm">
+                      {Number(bundle.quantity)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`text-xs ${bundle.status === "Running" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}`}
+                        variant="secondary"
+                      >
+                        {bundle.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          data-ocid={`bundle.qr_button.${i + 1}`}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setQrBundle(bundle)}
+                          title="View QR Code"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          data-ocid={`bundle.edit_button.${i + 1}`}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => openEdit(bundle)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          data-ocid={`bundle.delete_button.${i + 1}`}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteId(bundle.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Add/Edit Dialog */}

@@ -24,6 +24,7 @@ import {
   ClipboardList,
   FileSpreadsheet,
   Layers,
+  Search,
   Users,
 } from "lucide-react";
 import { useState } from "react";
@@ -56,11 +57,17 @@ function statusBadge(status: string) {
 // ── Employees Tab ─────────────────────────────────────────────────────────────
 function EmployeesTab() {
   const employeesQuery = useGetEmployees();
+  const [search, setSearch] = useState("");
+
   const finishing = (employeesQuery.data ?? []).filter(
     (e) => e.department.toLowerCase() === "finishing",
   );
   const active = finishing.filter((e) => e.status === "Active");
   const inactive = finishing.filter((e) => e.status === "Inactive");
+
+  const filteredFinishing = finishing.filter((e) =>
+    e.name.toLowerCase().includes(search.toLowerCase()),
+  );
 
   return (
     <div className="space-y-4">
@@ -86,74 +93,97 @@ function EmployeesTab() {
         </div>
       </div>
 
+      {/* Search bar */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Search employees..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          data-ocid="finishing.employees.search_input"
+          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 pl-9 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+      </div>
+
       <div className="rounded-lg border border-border overflow-hidden bg-card shadow-card">
-        <Table data-ocid="finishing.employees.table">
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>Employee</TableHead>
-              <TableHead className="hidden sm:table-cell">Phone</TableHead>
-              <TableHead>Salary Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden md:table-cell">Join Date</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {employeesQuery.isLoading ? (
-              ["s1", "s2", "s3"].map((sk) => (
-                <TableRow key={sk}>
-                  <TableCell colSpan={5}>
-                    <Skeleton className="h-8 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : finishing.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center py-12 text-muted-foreground"
-                  data-ocid="finishing.employees.empty_state"
-                >
-                  <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p>No finishing department employees found</p>
-                  <p className="text-xs mt-1">
-                    Tag employees with department "Finishing" in Employee
-                    Management
-                  </p>
-                </TableCell>
+        <div className="overflow-x-auto max-h-[360px] overflow-y-auto">
+          <Table data-ocid="finishing.employees.table">
+            <TableHeader className="sticky top-0 z-10 bg-muted/50">
+              <TableRow className="bg-muted/50">
+                <TableHead>Employee</TableHead>
+                <TableHead className="hidden sm:table-cell">Phone</TableHead>
+                <TableHead>Salary Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Join Date
+                </TableHead>
               </TableRow>
-            ) : (
-              finishing.map((emp, i) => (
-                <TableRow
-                  key={emp.id}
-                  data-ocid={`finishing.employees.item.${i + 1}`}
-                >
-                  <TableCell>
-                    <div className="font-medium text-sm">{emp.name}</div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                    {emp.phone}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {emp.salaryType}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      className={`text-xs ${emp.status === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
-                      variant="secondary"
-                    >
-                      {emp.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                    {emp.joinDate}
+            </TableHeader>
+            <TableBody>
+              {employeesQuery.isLoading ? (
+                ["s1", "s2", "s3"].map((sk) => (
+                  <TableRow key={sk}>
+                    <TableCell colSpan={5}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : filteredFinishing.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center py-12 text-muted-foreground"
+                    data-ocid="finishing.employees.empty_state"
+                  >
+                    <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                    {search ? (
+                      <p>No employees match &ldquo;{search}&rdquo;</p>
+                    ) : (
+                      <>
+                        <p>No finishing department employees found</p>
+                        <p className="text-xs mt-1">
+                          Tag employees with department &ldquo;Finishing&rdquo;
+                          in Employee Management
+                        </p>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                filteredFinishing.map((emp, i) => (
+                  <TableRow
+                    key={emp.id}
+                    data-ocid={`finishing.employees.item.${i + 1}`}
+                  >
+                    <TableCell>
+                      <div className="font-medium text-sm">{emp.name}</div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                      {emp.phone}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {emp.salaryType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`text-xs ${emp.status === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
+                        variant="secondary"
+                      >
+                        {emp.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                      {emp.joinDate}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );

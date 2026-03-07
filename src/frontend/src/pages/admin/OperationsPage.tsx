@@ -27,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Cog, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Cog, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Operation } from "../../backend.d";
@@ -72,8 +72,14 @@ export default function OperationsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editOp, setEditOp] = useState<Operation | null>(null);
   const [form, setForm] = useState<OpForm>(emptyForm);
+  const [search, setSearch] = useState("");
 
   const operations = opsQuery.data ?? [];
+  const filteredOperations = operations.filter(
+    (op) =>
+      op.name.toLowerCase().includes(search.toLowerCase()) ||
+      op.department.toLowerCase().includes(search.toLowerCase()),
+  );
 
   const openAdd = () => {
     setEditOp(null);
@@ -140,11 +146,22 @@ export default function OperationsPage() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex justify-end">
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search by name or department..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            data-ocid="operation.search_input"
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 pl-9 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
         <Button
           data-ocid="operation.add_button"
           onClick={openAdd}
-          className="gap-2"
+          className="gap-2 shrink-0"
         >
           <Plus className="w-4 h-4" />
           Add Operation
@@ -152,81 +169,91 @@ export default function OperationsPage() {
       </div>
 
       <div className="rounded-lg border border-border overflow-hidden bg-card shadow-card">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>Operation Name</TableHead>
-              <TableHead className="hidden sm:table-cell">Department</TableHead>
-              <TableHead>Rate/Piece</TableHead>
-              <TableHead className="hidden md:table-cell">
-                Daily Target
-              </TableHead>
-              <TableHead className="w-24">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {opsQuery.isLoading ? (
-              ["s1", "s2", "s3", "s4", "s5"].slice(0, 4).map((skId) => (
-                <TableRow key={skId}>
-                  <TableCell colSpan={5}>
-                    <Skeleton className="h-8 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : operations.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center py-12 text-muted-foreground"
-                  data-ocid="operation.empty_state"
-                >
-                  <Cog className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p>No operations defined yet</p>
-                  <p className="text-xs mt-1">
-                    Examples: {SAMPLE_OPERATIONS.slice(0, 3).join(", ")}
-                  </p>
-                </TableCell>
+        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-muted/50">
+              <TableRow className="bg-muted/50">
+                <TableHead>Operation Name</TableHead>
+                <TableHead className="hidden sm:table-cell">
+                  Department
+                </TableHead>
+                <TableHead>Rate/Piece</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Daily Target
+                </TableHead>
+                <TableHead className="w-24">Actions</TableHead>
               </TableRow>
-            ) : (
-              operations.map((op, i) => (
-                <TableRow key={op.id} data-ocid={`operation.item.${i + 1}`}>
-                  <TableCell className="font-medium">{op.name}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                    {op.department}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    ₹{op.ratePerPiece.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell font-mono text-sm">
-                    {Number(op.dailyTarget).toLocaleString()}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        data-ocid={`operation.edit_button.${i + 1}`}
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => openEdit(op)}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        data-ocid={`operation.delete_button.${i + 1}`}
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteId(op.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+            </TableHeader>
+            <TableBody>
+              {opsQuery.isLoading ? (
+                ["s1", "s2", "s3", "s4", "s5"].slice(0, 4).map((skId) => (
+                  <TableRow key={skId}>
+                    <TableCell colSpan={5}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : filteredOperations.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center py-12 text-muted-foreground"
+                    data-ocid="operation.empty_state"
+                  >
+                    <Cog className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                    {search ? (
+                      <p>No operations match &ldquo;{search}&rdquo;</p>
+                    ) : (
+                      <>
+                        <p>No operations defined yet</p>
+                        <p className="text-xs mt-1">
+                          Examples: {SAMPLE_OPERATIONS.slice(0, 3).join(", ")}
+                        </p>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                filteredOperations.map((op, i) => (
+                  <TableRow key={op.id} data-ocid={`operation.item.${i + 1}`}>
+                    <TableCell className="font-medium">{op.name}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                      {op.department}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      ₹{op.ratePerPiece.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell font-mono text-sm">
+                      {Number(op.dailyTarget).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          data-ocid={`operation.edit_button.${i + 1}`}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => openEdit(op)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          data-ocid={`operation.delete_button.${i + 1}`}
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteId(op.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Add/Edit Dialog */}
