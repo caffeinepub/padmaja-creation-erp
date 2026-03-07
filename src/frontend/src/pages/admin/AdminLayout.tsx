@@ -11,6 +11,7 @@ import {
   DollarSign,
   Factory,
   FileSpreadsheet,
+  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -28,6 +29,7 @@ import AttendancePage from "./AttendancePage";
 import BundleProgressPage from "./BundleProgressPage";
 import BundlesPage from "./BundlesPage";
 import EmployeesPage from "./EmployeesPage";
+import FinishingDepartmentPage from "./FinishingDepartmentPage";
 import OperationsPage from "./OperationsPage";
 import ProductionPage from "./ProductionPage";
 import ReportsPage from "./ReportsPage";
@@ -104,6 +106,12 @@ const navItems: NavItem[] = [
     ocid: "nav.targets.link",
   },
   {
+    label: "Finishing Dept",
+    path: "/admin/finishing",
+    icon: Layers,
+    ocid: "nav.finishing.link",
+  },
+  {
     label: "Supervisors",
     path: "/admin/supervisors",
     icon: UserCog,
@@ -126,6 +134,7 @@ function renderPage(currentPath: string) {
   if (currentPath === "/admin/salary") return <SalaryPage />;
   if (currentPath === "/admin/reports") return <ReportsPage />;
   if (currentPath === "/admin/targets") return <TargetsPage />;
+  if (currentPath === "/admin/finishing") return <FinishingDepartmentPage />;
   if (currentPath === "/admin/supervisors") return <SupervisorsPage />;
   return <AdminDashboard />;
 }
