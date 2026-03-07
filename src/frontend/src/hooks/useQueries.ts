@@ -16,6 +16,16 @@ import {
   productionStore,
   targetStore,
 } from "../utils/localStore";
+import { getStoredPin, pushMasterData } from "./useAutoSync";
+
+/** Call this after any admin mutation that changes master data */
+function autoSyncAfterMutation(): void {
+  const pin = getStoredPin();
+  const role = localStorage.getItem("pc_erp_sync_role");
+  if (pin && role === "admin") {
+    pushMasterData(pin);
+  }
+}
 
 // ── Auth (kept for compatibility, but no longer used for data) ─────────────────
 
@@ -81,7 +91,10 @@ export function useAddEmployee() {
         aadharNumber: data.aadharNumber,
       });
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["employees"] });
+      autoSyncAfterMutation();
+    },
   });
 }
 
@@ -110,7 +123,10 @@ export function useUpdateEmployee() {
         aadharNumber: data.aadharNumber,
       });
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["employees"] });
+      autoSyncAfterMutation();
+    },
   });
 }
 
@@ -120,7 +136,10 @@ export function useDeleteEmployee() {
     mutationFn: async (id: string): Promise<void> => {
       employeeStore.delete(id);
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["employees"] });
+      autoSyncAfterMutation();
+    },
   });
 }
 
@@ -150,7 +169,10 @@ export function useAddOperation() {
         dailyTarget: data.target,
       });
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["operations"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["operations"] });
+      autoSyncAfterMutation();
+    },
   });
 }
 
@@ -171,7 +193,10 @@ export function useUpdateOperation() {
         dailyTarget: data.target,
       });
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["operations"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["operations"] });
+      autoSyncAfterMutation();
+    },
   });
 }
 
@@ -181,7 +206,10 @@ export function useDeleteOperation() {
     mutationFn: async (id: string): Promise<void> => {
       operationStore.delete(id);
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["operations"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["operations"] });
+      autoSyncAfterMutation();
+    },
   });
 }
 
@@ -215,7 +243,10 @@ export function useAddBundle() {
         status: data.status,
       });
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["bundles"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["bundles"] });
+      autoSyncAfterMutation();
+    },
   });
 }
 
@@ -240,7 +271,10 @@ export function useUpdateBundle() {
         status: data.status,
       });
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["bundles"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["bundles"] });
+      autoSyncAfterMutation();
+    },
   });
 }
 
@@ -250,7 +284,10 @@ export function useDeleteBundle() {
     mutationFn: async (id: string): Promise<void> => {
       bundleStore.delete(id);
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["bundles"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["bundles"] });
+      autoSyncAfterMutation();
+    },
   });
 }
 

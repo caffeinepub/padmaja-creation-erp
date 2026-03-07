@@ -206,108 +206,118 @@ export default function SupervisorProduction() {
             </span>
           </div>
 
-          {rows.map((row, i) => (
-            <div
-              key={row.id}
-              data-ocid={`production.row.item.${i + 1}`}
-              className="bg-card border border-border rounded-xl p-3 space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Operation {i + 1}
-                </span>
-                {rows.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeRow(row.id)}
-                    className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Operation select */}
-              <div className="space-y-1">
-                <Select
-                  value={row.operationId}
-                  onValueChange={(v) => handleOperationChange(row.id, v)}
-                >
-                  <SelectTrigger
-                    data-ocid={
-                      i === 0 ? "production.operation.select" : undefined
-                    }
-                    className="text-base"
-                  >
-                    <SelectValue placeholder="Select operation..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {operations.map((op) => (
-                      <SelectItem key={op.id} value={op.id}>
-                        {op.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {row.operationId && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <IndianRupee className="w-3 h-3" />
-                    Rate: ₹{row.rate.toFixed(2)} per piece
-                  </p>
-                )}
-              </div>
-
-              {/* Bundle ID + QR scan */}
-              <div className="space-y-1">
-                <div className="flex gap-2">
-                  <Input
-                    data-ocid={i === 0 ? "production.bundle.input" : undefined}
-                    placeholder="Bundle ID (e.g. B101)"
-                    value={row.bundleId}
-                    onChange={(e) =>
-                      updateRow(row.id, { bundleId: e.target.value })
-                    }
-                    className="flex-1 text-base font-mono"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex-shrink-0 gap-1"
-                    data-ocid={i === 0 ? "production.scan_button" : undefined}
-                    onClick={() => setScanRowId(row.id)}
-                  >
-                    <QrCode className="w-4 h-4" />
-                    Scan
-                  </Button>
+          <div
+            data-ocid="production.operations.list"
+            className="max-h-[55vh] overflow-y-auto space-y-3 pr-1"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            {rows.map((row, i) => (
+              <div
+                key={row.id}
+                data-ocid={`production.row.item.${i + 1}`}
+                className="bg-card border border-border rounded-xl p-3 space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Operation {i + 1}
+                  </span>
+                  {rows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRow(row.id)}
+                      className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-              </div>
 
-              {/* Quantity */}
-              <div className="flex gap-3 items-end">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs">Quantity (pcs)</Label>
-                  <Input
-                    data-ocid={i === 0 ? "production.qty.input" : undefined}
-                    type="number"
-                    min="1"
-                    placeholder="0"
-                    value={row.qty}
-                    onChange={(e) => updateRow(row.id, { qty: e.target.value })}
-                    className="text-base"
-                  />
-                </div>
-                {row.operationId && row.qty && (
-                  <div className="pb-0.5 text-right">
-                    <p className="text-xs text-muted-foreground">Amount</p>
-                    <p className="font-display font-bold text-primary">
-                      ₹{calcAmount(row).toFixed(2)}
+                {/* Operation select */}
+                <div className="space-y-1">
+                  <Select
+                    value={row.operationId}
+                    onValueChange={(v) => handleOperationChange(row.id, v)}
+                  >
+                    <SelectTrigger
+                      data-ocid={
+                        i === 0 ? "production.operation.select" : undefined
+                      }
+                      className="text-base"
+                    >
+                      <SelectValue placeholder="Select operation..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operations.map((op) => (
+                        <SelectItem key={op.id} value={op.id}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {row.operationId && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <IndianRupee className="w-3 h-3" />
+                      Rate: ₹{row.rate.toFixed(2)} per piece
                     </p>
+                  )}
+                </div>
+
+                {/* Bundle ID + QR scan */}
+                <div className="space-y-1">
+                  <div className="flex gap-2">
+                    <Input
+                      data-ocid={
+                        i === 0 ? "production.bundle.input" : undefined
+                      }
+                      placeholder="Bundle ID (e.g. B101)"
+                      value={row.bundleId}
+                      onChange={(e) =>
+                        updateRow(row.id, { bundleId: e.target.value })
+                      }
+                      className="flex-1 text-base font-mono"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex-shrink-0 gap-1"
+                      data-ocid={i === 0 ? "production.scan_button" : undefined}
+                      onClick={() => setScanRowId(row.id)}
+                    >
+                      <QrCode className="w-4 h-4" />
+                      Scan
+                    </Button>
                   </div>
-                )}
+                </div>
+
+                {/* Quantity */}
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-xs">Quantity (pcs)</Label>
+                    <Input
+                      data-ocid={i === 0 ? "production.qty.input" : undefined}
+                      type="number"
+                      min="1"
+                      placeholder="0"
+                      value={row.qty}
+                      onChange={(e) =>
+                        updateRow(row.id, { qty: e.target.value })
+                      }
+                      className="text-base"
+                    />
+                  </div>
+                  {row.operationId && row.qty && (
+                    <div className="pb-0.5 text-right">
+                      <p className="text-xs text-muted-foreground">Amount</p>
+                      <p className="font-display font-bold text-primary">
+                        ₹{calcAmount(row).toFixed(2)}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Add row button */}

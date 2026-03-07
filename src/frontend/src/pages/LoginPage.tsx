@@ -10,10 +10,13 @@ import {
   Package,
   Scissors,
   TrendingUp,
+  Wifi,
+  Zap,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { importSyncCode, useAuth } from "../hooks/useAuth";
+import { pullMasterData, saveSupervisorPin } from "../hooks/useAutoSync";
 
 interface LoginPageProps {
   onLogin: (path: string) => void;
@@ -31,6 +34,12 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [syncCode, setSyncCode] = useState("");
   const [syncError, setSyncError] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // PIN auto-sync state
+  const [pinExpanded, setPinExpanded] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [isPinConnecting, setIsPinConnecting] = useState(false);
 
   const handleImportSync = () => {
     setSyncError("");
@@ -53,6 +62,34 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         setSyncError(result.error ?? "Failed to import sync code.");
       }
     }, 300);
+  };
+
+  const handlePinConnect = () => {
+    setPinError("");
+    const trimmed = pinInput.trim();
+    if (!/^\d{6}$/.test(trimmed)) {
+      setPinError("PIN must be exactly 6 digits.");
+      return;
+    }
+    setIsPinConnecting(true);
+    setTimeout(() => {
+      const result = pullMasterData(trimmed);
+      setIsPinConnecting(false);
+      if (result.error) {
+        setPinError(
+          result.error ??
+            "Could not connect. Make sure Admin has enabled Auto-Sync.",
+        );
+        return;
+      }
+      // Save PIN with supervisor role
+      saveSupervisorPin(trimmed);
+      toast.success(
+        "Connected! Supervisor accounts and data loaded. You can now log in.",
+      );
+      setPinInput("");
+      setPinExpanded(false);
+    }, 400);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -369,6 +406,117 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     <>
                       <Download className="mr-2 h-4 w-4" />
                       Import & Continue
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* PIN auto-sync section */}
+          <div className="mt-3 border border-emerald-500/30 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              data-ocid="login.pin_toggle"
+              onClick={() => {
+                setPinExpanded((v) => !v);
+                setPinError("");
+              }}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-emerald-500/5 transition-colors"
+              aria-expanded={pinExpanded}
+            >
+              <div className="flex items-center gap-2.5">
+                <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                <span className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
+                  Have a sync PIN? Connect here
+                </span>
+              </div>
+              {pinExpanded ? (
+                <ChevronUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+              )}
+            </button>
+
+            {pinExpanded && (
+              <div className="px-4 pb-4 space-y-3 border-t border-emerald-500/20 bg-emerald-500/5">
+                <p className="text-xs text-muted-foreground pt-3 leading-relaxed">
+                  Ask Admin for the 6-digit sync PIN. Enter it once to load
+                  supervisor accounts and enable auto-sync on this device.
+                </p>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="pin-code-input"
+                    className="text-xs font-medium text-foreground"
+                  >
+                    6-Digit Sync PIN
+                  </Label>
+                  <Input
+                    id="pin-code-input"
+                    data-ocid="login.pin_input"
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="Enter 6-digit PIN"
+                    value={pinInput}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      setPinInput(val);
+                      if (pinError) setPinError("");
+                    }}
+                    className="text-center text-xl font-mono tracking-[0.25em] h-11 bg-background"
+                    maxLength={6}
+                    autoComplete="off"
+                  />
+                </div>
+
+                {pinError && (
+                  <div
+                    data-ocid="login.pin_error_state"
+                    className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs"
+                    role="alert"
+                    aria-live="polite"
+                  >
+                    {pinError}
+                  </div>
+                )}
+
+                <Button
+                  type="button"
+                  data-ocid="login.pin_connect_button"
+                  onClick={handlePinConnect}
+                  disabled={isPinConnecting || pinInput.length !== 6}
+                  className="w-full h-10 text-sm bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                >
+                  {isPinConnecting ? (
+                    <>
+                      <svg
+                        className="h-4 w-4 animate-spin"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <Wifi className="h-4 w-4" />
+                      Connect with PIN
                     </>
                   )}
                 </Button>

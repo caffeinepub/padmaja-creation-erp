@@ -1,34 +1,47 @@
 # Padmaja Creation ERP
 
 ## Current State
-- Supervisor Attendance page shows all active employees in a flat daily list, no monthly view, no department filter.
-- Supervisor Production page shows all active employees in the employee dropdown regardless of salary type.
-- Admin Attendance page has Daily/Monthly tabs but no department filter.
-- Operations page has no department quick-filter; all operations shown together.
-- Employees can already be tagged with a department (free-text field).
+The app uses a fully local (localStorage-only) architecture. Admin and supervisor devices never communicate directly -- data is shared by:
+1. Admin copies a "sync code" (base64 blob) → pastes in WhatsApp → supervisor pastes it in app
+2. Supervisor copies an "upload code" (base64 blob) → pastes in WhatsApp → admin pastes it in app
+
+Both flows are manual, error-prone, and tedious for factory staff.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Supervisor Attendance**: Daily/Monthly tab toggle (same as Admin side). In Daily tab, add a department filter toggle (All / Finishing) so supervisor can quickly mark attendance only for Finishing department employees. Monthly tab shows per-employee present/absent/half-day counts with same All/Finishing filter.
-- **Supervisor Production**: Filter employee dropdown to show only **Piece Rate** salary-type employees (since finishing/piece-rate workers are paid per piece). Add a small label note explaining the filter.
-- **Admin Attendance**: Add a department filter (All / Finishing) to both Daily and Monthly tabs — mirrors supervisor side.
-- **Admin Production**: Add a department/salary-type filter toggle (All / Piece Rate / Monthly) to the existing filter row so admin can view finishing employee entries separately.
-- **"Finishing" as a suggested department**: Add "Finishing" to the department autocomplete suggestions in the Add/Edit Employee dialog so users can easily tag finishing employees.
+- **Auto-sync engine** (`useAutoSync.ts`) -- a polling mechanism that leverages the browser's `localStorage` + `BroadcastChannel` API (same-origin cross-tab) and a simple "shared sync store" backed by a unique 6-digit PIN
+- Since this is a single-origin app (all users visit the same URL), we can use a **shared namespace in localStorage keyed by a PIN** that acts as a virtual "sync channel":
+  - When admin saves data, it writes to `pc_sync_<PIN>_master` (employees, operations, bundles, supervisors)
+  - Supervisor polls `pc_sync_<PIN>_master` every 30 seconds; if `updatedAt` changes, it auto-imports
+  - Supervisor writes production entries to `pc_sync_<PIN>_entries_<supervisorUsername>`
+  - Admin polls `pc_sync_<PIN>_entries_*` every 30 seconds and auto-imports new entries
+  - BroadcastChannel fires instant update in the same browser; polling is the fallback for other devices
+- **Auto-sync PIN setup** -- Admin sees a "Auto Sync" section in the Supervisors page:
+  - Generates a 6-digit PIN (or lets admin pick one)
+  - Shows a simple instruction: "Share this PIN with your supervisors once. They enter it in their app and everything syncs automatically."
+  - "Enable Auto-Sync" toggle
+- **Supervisor sync setup** -- On first login (or via a "Setup Auto-Sync" button in their header), supervisor enters the 6-digit PIN once and saves it. After that, syncing happens automatically.
+- **Auto-sync status indicator** in supervisor header: small green dot when synced, spinning when syncing
+- **Admin auto-import badge** on Production and Attendance pages showing "X new entries auto-imported" toast when new supervisor data arrives
 
 ### Modify
-- `SupervisorAttendance.tsx`: Wrap existing daily view in tabs; add Monthly tab (reuse admin MonthlyTab logic); add Finishing dept filter chip on both tabs.
-- `SupervisorProduction.tsx`: Filter `employees` list to only `salaryType === "Piece Rate"`.
-- `AttendancePage.tsx` (Admin): Add department filter chips (All / Finishing) to DailyTab and MonthlyTab.
-- `ProductionPage.tsx` (Admin): Add salary type filter to filter row.
-- `EmployeesPage.tsx`: Add "Finishing" to department suggestions datalist.
+- `useAuth.ts` -- `exportSyncCode` and `importSyncCode` remain for backward compat, but now also write to the shared sync namespace when a PIN is active
+- `SupervisorsPage.tsx` -- Add "Auto Sync" card section at the top with PIN display and enable/disable toggle. Keep existing manual sync as fallback.
+- `SupervisorLayout.tsx` -- Add PIN setup dialog (one-time), replace manual refresh/upload workflow with auto-sync status. Keep manual buttons as fallback.
+- Admin Layout -- add a polling hook that auto-imports supervisor entries when PIN is active
 
 ### Remove
-- Nothing removed.
+- Nothing removed -- manual sync kept as fallback for devices without the PIN set up
 
 ## Implementation Plan
-1. Update `EmployeesPage.tsx` — add "Finishing" to department suggestions datalist.
-2. Update `SupervisorProduction.tsx` — filter employees to Piece Rate only; show info note.
-3. Update `SupervisorAttendance.tsx` — add Daily/Monthly tabs + All/Finishing dept filter on both tabs.
-4. Update `AttendancePage.tsx` (Admin) — add All/Finishing dept filter chips to both tabs.
-5. Update `ProductionPage.tsx` (Admin) — add salary type filter dropdown to filters row.
+1. Create `src/frontend/src/hooks/useAutoSync.ts` -- core sync engine:
+   - `initAdminSync(pin)` -- writes master data to shared namespace and starts polling for supervisor entries
+   - `initSupervisorSync(pin, username)` -- reads master data from shared namespace, writes entries, polls for master updates
+   - `generatePin()` -- returns a random 6-digit string
+   - `getPinFromStorage()` / `savePinToStorage()` helpers
+   - Uses `setInterval` for polling (30s) + `BroadcastChannel` for same-tab instant sync
+2. Update `SupervisorsPage.tsx` -- add Auto Sync card with PIN, enable/disable, status
+3. Update `SupervisorLayout.tsx` -- add PIN setup dialog, auto-sync status dot in header, auto-upload on submission
+4. Update `useAuth.ts` `exportSyncCode` to also write to sync namespace when PIN exists
+5. Update `useQueries.ts` or create a new `useAdminAutoSync` hook that polls and auto-imports supervisor entries into admin's localStorage

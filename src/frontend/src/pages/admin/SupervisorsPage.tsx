@@ -44,6 +44,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  Activity,
+  CheckCircle2,
   Copy,
   Download,
   Edit2,
@@ -52,17 +54,41 @@ import {
   Info,
   KeyRound,
   Plus,
+  RefreshCw,
   Share2,
   Shield,
+  Sparkles,
   Trash2,
   Upload,
   UserCog,
+  Wifi,
+  WifiOff,
+  Zap,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { SupervisorAccount } from "../../hooks/useAuth";
 import { exportSyncCode, importUploadCode } from "../../hooks/useAuth";
+import { useAdminAutoSync } from "../../hooks/useAutoSync";
 import { useSupervisors } from "../../hooks/useSupervisors";
+
+const ALL_DATA_KEYS = [
+  "pc_erp_supervisors",
+  "pc_erp_employees",
+  "pc_erp_operations",
+  "pc_erp_bundles",
+  "pc_erp_production",
+  "pc_erp_attendance",
+  "pc_erp_targets",
+  "pc_erp_counters",
+  "pc_erp_session",
+];
+
+function clearAllData() {
+  for (const key of ALL_DATA_KEYS) {
+    localStorage.removeItem(key);
+  }
+}
 
 interface FormState {
   name: string;
@@ -78,10 +104,28 @@ const emptyForm: FormState = {
   status: "Active",
 };
 
+function formatSyncTime(date: Date | null): string {
+  if (!date) return "Never";
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 5) return "Just now";
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
 export default function SupervisorsPage() {
   const { supervisors, createSupervisor, updateSupervisor, deleteSupervisor } =
     useSupervisors();
   const queryClient = useQueryClient();
+  const autoSync = useAdminAutoSync();
+
+  // Force re-render every 10s to update "last synced X seconds ago"
+  const [, setTick] = useState(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useState(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 10000);
+    return () => clearInterval(id);
+  });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -98,6 +142,8 @@ export default function SupervisorsPage() {
   const [visiblePasswords, setVisiblePasswords] = useState<
     Record<string, boolean>
   >({});
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
 
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -206,6 +252,14 @@ export default function SupervisorsPage() {
     setDeleteTarget(null);
   };
 
+  const handleFactoryReset = () => {
+    clearAllData();
+    toast.success("All data cleared. Please refresh the page to log in again.");
+    setTimeout(() => {
+      window.location.reload();
+    }, 1200);
+  };
+
   const formatDate = (iso: string) => {
     return new Date(iso).toLocaleDateString("en-IN", {
       day: "2-digit",
@@ -227,6 +281,31 @@ export default function SupervisorsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+          <Button
+            data-ocid="supervisors.factory_reset_button"
+            variant="outline"
+            onClick={() => {
+              setResetConfirmText("");
+              setResetConfirmOpen(true);
+            }}
+            className="border-destructive/40 text-destructive hover:bg-destructive/10 hidden sm:flex gap-1.5"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Clear All Data
+          </Button>
+          <Button
+            data-ocid="supervisors.factory_reset_button_mobile"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setResetConfirmText("");
+              setResetConfirmOpen(true);
+            }}
+            className="sm:hidden border-destructive/40 text-destructive hover:bg-destructive/10"
+            title="Clear All Data"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </Button>
           <Button
             data-ocid="supervisors.import_entries_button"
             variant="outline"
@@ -271,6 +350,177 @@ export default function SupervisorsPage() {
           </Button>
         </div>
       </div>
+
+      {/* ── Auto-Sync Card (Recommended) ────────────────────────────────────── */}
+      <Card
+        className={`border-2 ${autoSync.isEnabled ? "border-emerald-500/40 bg-emerald-500/5" : "border-emerald-500/20 bg-emerald-500/3"}`}
+        data-ocid="auto_sync.card"
+      >
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${autoSync.isEnabled ? "bg-emerald-500/15" : "bg-emerald-500/10"}`}
+              >
+                {autoSync.isEnabled ? (
+                  <Wifi className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <Zap className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-base font-semibold text-foreground">
+                    Auto Sync
+                  </CardTitle>
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] px-1.5 py-0 font-semibold uppercase tracking-wide">
+                    <Sparkles className="w-2.5 h-2.5 mr-1" />
+                    Recommended
+                  </Badge>
+                  {autoSync.isEnabled && (
+                    <Badge className="bg-emerald-500 text-white border-emerald-500 text-[10px] px-1.5 py-0">
+                      <Activity className="w-2.5 h-2.5 mr-1" />
+                      Active
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription className="text-sm text-muted-foreground mt-0.5">
+                  {autoSync.isEnabled
+                    ? "Supervisors sync automatically every 30 seconds. No WhatsApp codes needed!"
+                    : "Enable this to automatically sync data with supervisors. No more WhatsApp codes!"}
+                </CardDescription>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!autoSync.isEnabled ? (
+            // Disabled state
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Share a 6-digit PIN with your supervisors. They enter it once in
+                the app and everything syncs automatically — employees,
+                operations, bundles, and production entries.
+              </p>
+              <Button
+                data-ocid="auto_sync.enable_button"
+                onClick={() => {
+                  const pin = autoSync.enable();
+                  toast.success(
+                    `Auto-Sync enabled! Your PIN is ${pin}. Share it with supervisors.`,
+                  );
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+              >
+                <Zap className="w-4 h-4" />
+                Enable Auto-Sync
+              </Button>
+            </div>
+          ) : (
+            // Enabled state
+            <div className="space-y-4">
+              {/* PIN display */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-1.5">
+                    Sync PIN — share this with supervisors
+                  </p>
+                  <div
+                    data-ocid="auto_sync.pin_display"
+                    className="font-mono text-3xl font-bold tracking-[0.2em] text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 rounded-xl inline-block"
+                  >
+                    {autoSync.pin}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Button
+                    data-ocid="auto_sync.copy_pin_button"
+                    variant="outline"
+                    size="sm"
+                    className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 gap-1.5"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(autoSync.pin ?? "");
+                        toast.success("PIN copied to clipboard!");
+                      } catch {
+                        window.prompt("Your Sync PIN:", autoSync.pin ?? "");
+                      }
+                    }}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy PIN
+                  </Button>
+                  <Button
+                    data-ocid="auto_sync.sync_now_button"
+                    variant="outline"
+                    size="sm"
+                    className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 gap-1.5"
+                    onClick={() => {
+                      autoSync.syncNow();
+                      void queryClient.invalidateQueries();
+                      toast.success("Synced successfully!");
+                    }}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Sync Now
+                  </Button>
+                </div>
+              </div>
+
+              {/* Last sync time */}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <span>
+                  Last synced:{" "}
+                  <span className="font-medium text-foreground">
+                    {formatSyncTime(autoSync.lastSyncAt)}
+                  </span>{" "}
+                  · Polls every 30 seconds
+                </span>
+              </div>
+
+              {/* Instructions */}
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+                  Supervisor setup (one time)
+                </p>
+                <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside leading-relaxed">
+                  <li>Supervisor opens the app login page on their phone</li>
+                  <li>
+                    Tap{" "}
+                    <span className="font-semibold text-foreground">
+                      "Have a sync PIN? Enter it here"
+                    </span>{" "}
+                    at the bottom
+                  </li>
+                  <li>
+                    Enter the 6-digit PIN:{" "}
+                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">
+                      {autoSync.pin}
+                    </span>
+                  </li>
+                  <li>Done! Everything syncs automatically from now on.</li>
+                </ol>
+              </div>
+
+              {/* Disable button */}
+              <Button
+                data-ocid="auto_sync.disable_button"
+                variant="outline"
+                size="sm"
+                className="border-destructive/30 text-destructive hover:bg-destructive/10 gap-1.5"
+                onClick={() => {
+                  autoSync.disable();
+                  toast.success("Auto-Sync disabled.");
+                }}
+              >
+                <WifiOff className="w-3.5 h-3.5" />
+                Disable Auto-Sync
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Admin credentials info card */}
       <Card className="border-primary/20 bg-primary/5">
@@ -771,6 +1021,69 @@ export default function SupervisorsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Factory Reset confirmation */}
+      <AlertDialog
+        open={resetConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) setResetConfirmOpen(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              Clear All Data
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                This will permanently delete <strong>ALL</strong> data:
+                supervisors, employees, operations, bundles, production entries,
+                attendance records, and targets.
+              </span>
+              <span className="block mt-2">
+                After clearing, you will be taken back to the login screen. The
+                admin login will remain as{" "}
+                <code className="font-mono bg-muted px-1 rounded">admin</code> /{" "}
+                <code className="font-mono bg-muted px-1 rounded">
+                  admin123
+                </code>
+                .
+              </span>
+              <span className="block mt-3 font-semibold text-foreground">
+                Type{" "}
+                <code className="font-mono bg-muted px-1 rounded">CLEAR</code>{" "}
+                below to confirm:
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-1 pb-1">
+            <Input
+              data-ocid="supervisors.reset_confirm_input"
+              placeholder="Type CLEAR to confirm"
+              value={resetConfirmText}
+              onChange={(e) => setResetConfirmText(e.target.value)}
+              className="border-destructive/40 focus-visible:ring-destructive"
+              autoComplete="off"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              data-ocid="supervisors.reset_cancel_button"
+              onClick={() => setResetConfirmOpen(false)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="supervisors.reset_confirm_button"
+              onClick={handleFactoryReset}
+              disabled={resetConfirmText.trim().toUpperCase() !== "CLEAR"}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40"
+            >
+              Clear All Data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog
