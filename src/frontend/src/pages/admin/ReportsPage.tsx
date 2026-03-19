@@ -143,7 +143,7 @@ export default function ReportsPage() {
       const b = bMap.get(bid);
       return {
         "Bundle ID": bid,
-        Style: b?.styleNumber ?? "",
+        Style: b?.style ?? "",
         Size: b?.size ?? "",
         "Total Pieces": stats.pieces,
         "Total Amount (₹)": stats.amount.toFixed(2),

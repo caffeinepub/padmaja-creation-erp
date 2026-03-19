@@ -1,0 +1,173 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Force dark mode on root */
+:root {
+  color-scheme: dark;
+
+  /* Background: deep navy #0F172A */
+  --background: 17.6 0.025 264;
+  /* Foreground: light #E5E7EB */
+  --foreground: 91 0.01 260;
+
+  /* Card: #1F2937 */
+  --card: 25 0.025 258;
+  --card-foreground: 91 0.01 260;
+
+  /* Popover */
+  --popover: 22 0.025 260;
+  --popover-foreground: 91 0.01 260;
+
+  /* Primary: Blue #3B82F6 */
+  --primary: 60 0.2 250;
+  --primary-foreground: 98 0.005 260;
+
+  /* Secondary: dark surface */
+  --secondary: 30 0.025 256;
+  --secondary-foreground: 91 0.01 260;
+
+  /* Muted */
+  --muted: 28 0.022 258;
+  --muted-foreground: 67 0.012 258;
+
+  /* Accent: Purple #8B5CF6 */
+  --accent: 35 0.03 255;
+  --accent-foreground: 91 0.01 260;
+
+  /* Destructive: Red #EF4444 */
+  --destructive: 60 0.22 28;
+  --destructive-foreground: 98 0.005 30;
+
+  /* Success: Green #22C55E */
+  --success: 72 0.19 145;
+  --success-foreground: 98 0.005 145;
+
+  /* Warning: Amber #F59E0B */
+  --warning: 75 0.18 76;
+  --warning-foreground: 15 0.025 76;
+
+  /* Info: Teal #14B8A6 */
+  --info: 68 0.13 190;
+  --info-foreground: 98 0.005 190;
+
+  /* Border: #2B3340 */
+  --border: 29 0.028 255;
+  --input: 29 0.028 255;
+  --ring: 60 0.2 250;
+
+  /* Charts */
+  --chart-1: 60 0.2 250;
+  --chart-2: 72 0.19 145;
+  --chart-3: 75 0.18 76;
+  --chart-4: 60 0.22 28;
+  --chart-5: 55 0.22 290;
+
+  /* Sidebar: #111827 */
+  --sidebar: 19 0.025 260;
+  --sidebar-foreground: 91 0.01 260;
+  --sidebar-primary: 60 0.2 250;
+  --sidebar-primary-foreground: 98 0.005 260;
+  --sidebar-accent: 28 0.025 257;
+  --sidebar-accent-foreground: 91 0.01 260;
+  --sidebar-border: 26 0.025 257;
+  --sidebar-ring: 60 0.2 250;
+
+  --radius: 0.75rem;
+}
+
+/* Light overrides (unused, keeping dark as default) */
+.light {
+  --background: 97 0.01 260;
+  --foreground: 20 0.025 260;
+  --card: 99 0.005 260;
+  --card-foreground: 20 0.025 260;
+  --popover: 99 0.005 260;
+  --popover-foreground: 20 0.025 260;
+  --primary: 55 0.2 250;
+  --primary-foreground: 98 0.005 260;
+  --secondary: 94 0.01 260;
+  --secondary-foreground: 25 0.025 260;
+  --muted: 94 0.01 260;
+  --muted-foreground: 50 0.015 258;
+  --accent: 94 0.01 260;
+  --accent-foreground: 25 0.025 260;
+  --destructive: 60 0.22 28;
+  --destructive-foreground: 98 0.005 30;
+  --border: 88 0.01 260;
+  --input: 88 0.01 260;
+  --ring: 55 0.2 250;
+  --sidebar: 94 0.01 260;
+  --sidebar-foreground: 25 0.025 260;
+  --sidebar-primary: 55 0.2 250;
+  --sidebar-primary-foreground: 98 0.005 260;
+  --sidebar-accent: 88 0.01 260;
+  --sidebar-accent-foreground: 25 0.025 260;
+  --sidebar-border: 88 0.01 260;
+  --sidebar-ring: 55 0.2 250;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Date/time input dark mode */
+  input[type="date"],
+  input[type="month"],
+  input[type="time"] {
+    color-scheme: dark;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(35% 0.02 255);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(45% 0.02 255);
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  /* Status badge utilities for dark mode */
+  .badge-green {
+    @apply bg-green-500/15 text-green-400 border border-green-500/30;
+  }
+  .badge-red {
+    @apply bg-red-500/15 text-red-400 border border-red-500/30;
+  }
+  .badge-amber {
+    @apply bg-amber-500/15 text-amber-400 border border-amber-500/30;
+  }
+  .badge-blue {
+    @apply bg-blue-500/15 text-blue-400 border border-blue-500/30;
+  }
+  .badge-purple {
+    @apply bg-purple-500/15 text-purple-400 border border-purple-500/30;
+  }
+}

@@ -89,11 +89,12 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface Target {
+export interface Operation {
     id: string;
-    date: string;
-    targetQty: bigint;
-    operationId: string;
+    dailyTarget: bigint;
+    name: string;
+    ratePerPiece: number;
+    department: string;
 }
 export interface ProductionEntry {
     id: string;
@@ -104,41 +105,60 @@ export interface ProductionEntry {
     quantity: bigint;
     bundleId: string;
     amount: number;
+    supervisorId: string;
 }
-export interface Operation {
+export interface InventoryItem {
     id: string;
-    dailyTarget: bigint;
-    name: string;
-    ratePerPiece: number;
-    department: string;
+    stockQty: bigint;
+    unit: string;
+    itemName: string;
 }
 export interface Attendance {
     id: string;
     status: string;
+    checkIn: string;
     date: string;
     employeeId: string;
+    checkOut: string;
 }
 export interface Bundle {
     id: string;
     status: string;
-    styleNumber: string;
+    dateCreated: string;
     color: string;
     size: string;
-    createdDate: string;
+    stage: string;
+    style: string;
     quantity: bigint;
+    priority: string;
+    qrCode: string;
 }
 export interface Employee {
     id: string;
     status: string;
+    bankAccount: string;
     joinDate: string;
     name: string;
+    aadhaar: string;
+    specialization: string;
+    ratePerPiece: number;
     salaryType: string;
+    skillLevel: string;
     phone: string;
     department: string;
 }
-export interface DashboardStats {
-    todayProduction: bigint;
-    runningBundlesCount: bigint;
+export interface QualityControl {
+    id: string;
+    rejectedQty: bigint;
+    reworkStatus: string;
+    operationId: string;
+    bundleId: string;
+    reason: string;
+}
+export interface Report {
+    totalPieces: bigint;
+    employeeId: string;
+    totalAmount: number;
 }
 export interface UserProfile {
     name: string;
@@ -151,52 +171,51 @@ export enum UserRole {
 }
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
-    addBundle(styleNumber: string, size: string, color: string, qty: bigint, createdDate: string, status: string): Promise<string>;
-    addEmployee(name: string, phone: string, dept: string, salaryType: string, joinDate: string, status: string): Promise<string>;
-    addOperation(name: string, rate: number, dept: string, target: bigint): Promise<string>;
-    addProductionEntry(date: string, employeeId: string, operationId: string, bundleId: string, qty: bigint, rate: number, amount: number): Promise<string>;
+    addBulkProductionEntries(entries: Array<ProductionEntry>): Promise<void>;
+    addBundle(style: string, size: string, color: string, qty: bigint, date: string, status: string, stage: string, priority: string): Promise<string>;
+    addEmployee(name: string, phone: string, dept: string, salaryType: string, rate: number, bank: string, aadhaar: string, joinDate: string, status: string, skill: string, specialization: string): Promise<string>;
+    addInventoryItem(itemName: string, stockQty: bigint, unit: string): Promise<string>;
+    addOperation(name: string, dept: string, rate: number, target: bigint): Promise<string>;
+    addProductionEntry(date: string, employeeId: string, supervisorId: string, operationId: string, bundleId: string, qty: bigint, rate: number, amount: number): Promise<string>;
+    addQualityControl(bundleId: string, operationId: string, qty: bigint, reason: string, rework: string): Promise<string>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteBundle(id: string): Promise<void>;
     deleteEmployee(id: string): Promise<void>;
     deleteOperation(id: string): Promise<void>;
-    getAllAttendance(): Promise<Array<Attendance>>;
     getAttendanceByDate(date: string): Promise<Array<Attendance>>;
     getBundle(_id: string): Promise<Bundle | null>;
-    getBundleProgress(bundleId: string): Promise<Array<{
-        completed: boolean;
-        operationId: string;
-    }>>;
+    getBundleByQRCode(qrCode: string): Promise<Bundle | null>;
     getBundles(): Promise<Array<Bundle>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
-    getDashboardStats(): Promise<DashboardStats>;
     getEmployee(_id: string): Promise<Employee | null>;
     getEmployees(): Promise<Array<Employee>>;
+    getEntriesByBundle(bundleId: string): Promise<Array<ProductionEntry>>;
     getEntriesByDate(date: string): Promise<Array<ProductionEntry>>;
     getEntriesByEmployee(employeeId: string): Promise<Array<ProductionEntry>>;
-    getEntriesByMonth(year: bigint, month: bigint): Promise<Array<ProductionEntry>>;
-    getMonthlySalary(year: bigint, month: bigint): Promise<Array<{
-        totalPieces: bigint;
-        employeeId: string;
-        totalAmount: number;
-    }>>;
+    getInventory(): Promise<Array<InventoryItem>>;
+    getLowStockItems(): Promise<Array<InventoryItem>>;
+    getMonthlyAttendanceByEmployee(employeeId: string, year: bigint, month: bigint): Promise<Array<Attendance>>;
     getOperation(_id: string): Promise<Operation | null>;
     getOperations(): Promise<Array<Operation>>;
-    getOperatorRankingToday(todayDate: string): Promise<Array<{
-        totalQty: bigint;
+    getPerformanceRanking(): Promise<Array<{
+        totalPieces: bigint;
         employeeId: string;
     }>>;
     getProductionEntries(): Promise<Array<ProductionEntry>>;
-    getTargets(): Promise<Array<Target>>;
+    getProductionSummaryForToday(): Promise<[bigint, number]>;
+    getQualityControl(): Promise<Array<QualityControl>>;
+    getSalarySheet(year: bigint, month: bigint): Promise<Array<Report>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
-    markAttendance(date: string, employeeId: string, status: string): Promise<string>;
+    issueInventoryToBundle(id: string, qty: bigint): Promise<void>;
+    markAttendance(date: string, employeeId: string, status: string, checkIn: string, checkOut: string): Promise<string>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    setTarget(operationId: string, qty: bigint, date: string): Promise<string>;
-    updateAttendance(id: string, date: string, employeeId: string, status: string): Promise<void>;
-    updateBundle(id: string, styleNumber: string, size: string, color: string, qty: bigint, createdDate: string, status: string): Promise<void>;
-    updateEmployee(id: string, name: string, phone: string, dept: string, salaryType: string, joinDate: string, status: string): Promise<void>;
-    updateOperation(id: string, name: string, rate: number, dept: string, target: bigint): Promise<void>;
+    updateAttendance(id: string, date: string, employeeId: string, status: string, checkIn: string, checkOut: string): Promise<void>;
+    updateBundle(id: string, style: string, size: string, color: string, qty: bigint, date: string, status: string, stage: string, priority: string): Promise<void>;
+    updateEmployee(id: string, name: string, phone: string, dept: string, salaryType: string, rate: number, bank: string, aadhaar: string, joinDate: string, status: string, skill: string, specialization: string): Promise<void>;
+    updateInventoryItem(id: string, itemName: string, stockQty: bigint, unit: string): Promise<void>;
+    updateOperation(id: string, name: string, dept: string, rate: number, target: bigint): Promise<void>;
 }
 import type { Bundle as _Bundle, Employee as _Employee, Operation as _Operation, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -215,35 +234,63 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async addBundle(arg0: string, arg1: string, arg2: string, arg3: bigint, arg4: string, arg5: string): Promise<string> {
+    async addBulkProductionEntries(arg0: Array<ProductionEntry>): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.addBundle(arg0, arg1, arg2, arg3, arg4, arg5);
+                const result = await this.actor.addBulkProductionEntries(arg0);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.addBundle(arg0, arg1, arg2, arg3, arg4, arg5);
+            const result = await this.actor.addBulkProductionEntries(arg0);
             return result;
         }
     }
-    async addEmployee(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<string> {
+    async addBundle(arg0: string, arg1: string, arg2: string, arg3: bigint, arg4: string, arg5: string, arg6: string, arg7: string): Promise<string> {
         if (this.processError) {
             try {
-                const result = await this.actor.addEmployee(arg0, arg1, arg2, arg3, arg4, arg5);
+                const result = await this.actor.addBundle(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.addEmployee(arg0, arg1, arg2, arg3, arg4, arg5);
+            const result = await this.actor.addBundle(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
             return result;
         }
     }
-    async addOperation(arg0: string, arg1: number, arg2: string, arg3: bigint): Promise<string> {
+    async addEmployee(arg0: string, arg1: string, arg2: string, arg3: string, arg4: number, arg5: string, arg6: string, arg7: string, arg8: string, arg9: string, arg10: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addEmployee(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addEmployee(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+            return result;
+        }
+    }
+    async addInventoryItem(arg0: string, arg1: bigint, arg2: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addInventoryItem(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addInventoryItem(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async addOperation(arg0: string, arg1: string, arg2: number, arg3: bigint): Promise<string> {
         if (this.processError) {
             try {
                 const result = await this.actor.addOperation(arg0, arg1, arg2, arg3);
@@ -257,17 +304,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async addProductionEntry(arg0: string, arg1: string, arg2: string, arg3: string, arg4: bigint, arg5: number, arg6: number): Promise<string> {
+    async addProductionEntry(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: bigint, arg6: number, arg7: number): Promise<string> {
         if (this.processError) {
             try {
-                const result = await this.actor.addProductionEntry(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                const result = await this.actor.addProductionEntry(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.addProductionEntry(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            const result = await this.actor.addProductionEntry(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+            return result;
+        }
+    }
+    async addQualityControl(arg0: string, arg1: string, arg2: bigint, arg3: string, arg4: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addQualityControl(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addQualityControl(arg0, arg1, arg2, arg3, arg4);
             return result;
         }
     }
@@ -327,20 +388,6 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getAllAttendance(): Promise<Array<Attendance>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getAllAttendance();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getAllAttendance();
-            return result;
-        }
-    }
     async getAttendanceByDate(arg0: string): Promise<Array<Attendance>> {
         if (this.processError) {
             try {
@@ -369,21 +416,18 @@ export class Backend implements backendInterface {
             return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getBundleProgress(arg0: string): Promise<Array<{
-        completed: boolean;
-        operationId: string;
-    }>> {
+    async getBundleByQRCode(arg0: string): Promise<Bundle | null> {
         if (this.processError) {
             try {
-                const result = await this.actor.getBundleProgress(arg0);
-                return result;
+                const result = await this.actor.getBundleByQRCode(arg0);
+                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getBundleProgress(arg0);
-            return result;
+            const result = await this.actor.getBundleByQRCode(arg0);
+            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
         }
     }
     async getBundles(): Promise<Array<Bundle>> {
@@ -428,20 +472,6 @@ export class Backend implements backendInterface {
             return from_candid_UserRole_n5(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getDashboardStats(): Promise<DashboardStats> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getDashboardStats();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getDashboardStats();
-            return result;
-        }
-    }
     async getEmployee(arg0: string): Promise<Employee | null> {
         if (this.processError) {
             try {
@@ -467,6 +497,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getEmployees();
+            return result;
+        }
+    }
+    async getEntriesByBundle(arg0: string): Promise<Array<ProductionEntry>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getEntriesByBundle(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getEntriesByBundle(arg0);
             return result;
         }
     }
@@ -498,35 +542,45 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getEntriesByMonth(arg0: bigint, arg1: bigint): Promise<Array<ProductionEntry>> {
+    async getInventory(): Promise<Array<InventoryItem>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getEntriesByMonth(arg0, arg1);
+                const result = await this.actor.getInventory();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getEntriesByMonth(arg0, arg1);
+            const result = await this.actor.getInventory();
             return result;
         }
     }
-    async getMonthlySalary(arg0: bigint, arg1: bigint): Promise<Array<{
-        totalPieces: bigint;
-        employeeId: string;
-        totalAmount: number;
-    }>> {
+    async getLowStockItems(): Promise<Array<InventoryItem>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getMonthlySalary(arg0, arg1);
+                const result = await this.actor.getLowStockItems();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getMonthlySalary(arg0, arg1);
+            const result = await this.actor.getLowStockItems();
+            return result;
+        }
+    }
+    async getMonthlyAttendanceByEmployee(arg0: string, arg1: bigint, arg2: bigint): Promise<Array<Attendance>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getMonthlyAttendanceByEmployee(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getMonthlyAttendanceByEmployee(arg0, arg1, arg2);
             return result;
         }
     }
@@ -558,20 +612,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getOperatorRankingToday(arg0: string): Promise<Array<{
-        totalQty: bigint;
+    async getPerformanceRanking(): Promise<Array<{
+        totalPieces: bigint;
         employeeId: string;
     }>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getOperatorRankingToday(arg0);
+                const result = await this.actor.getPerformanceRanking();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getOperatorRankingToday(arg0);
+            const result = await this.actor.getPerformanceRanking();
             return result;
         }
     }
@@ -589,17 +643,51 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getTargets(): Promise<Array<Target>> {
+    async getProductionSummaryForToday(): Promise<[bigint, number]> {
         if (this.processError) {
             try {
-                const result = await this.actor.getTargets();
+                const result = await this.actor.getProductionSummaryForToday();
+                return [
+                    result[0],
+                    result[1]
+                ];
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getProductionSummaryForToday();
+            return [
+                result[0],
+                result[1]
+            ];
+        }
+    }
+    async getQualityControl(): Promise<Array<QualityControl>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getQualityControl();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getTargets();
+            const result = await this.actor.getQualityControl();
+            return result;
+        }
+    }
+    async getSalarySheet(arg0: bigint, arg1: bigint): Promise<Array<Report>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSalarySheet(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSalarySheet(arg0, arg1);
             return result;
         }
     }
@@ -631,17 +719,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async markAttendance(arg0: string, arg1: string, arg2: string): Promise<string> {
+    async issueInventoryToBundle(arg0: string, arg1: bigint): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.markAttendance(arg0, arg1, arg2);
+                const result = await this.actor.issueInventoryToBundle(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.markAttendance(arg0, arg1, arg2);
+            const result = await this.actor.issueInventoryToBundle(arg0, arg1);
+            return result;
+        }
+    }
+    async markAttendance(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.markAttendance(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.markAttendance(arg0, arg1, arg2, arg3, arg4);
             return result;
         }
     }
@@ -659,63 +761,63 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async setTarget(arg0: string, arg1: bigint, arg2: string): Promise<string> {
+    async updateAttendance(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.setTarget(arg0, arg1, arg2);
+                const result = await this.actor.updateAttendance(arg0, arg1, arg2, arg3, arg4, arg5);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.setTarget(arg0, arg1, arg2);
+            const result = await this.actor.updateAttendance(arg0, arg1, arg2, arg3, arg4, arg5);
             return result;
         }
     }
-    async updateAttendance(arg0: string, arg1: string, arg2: string, arg3: string): Promise<void> {
+    async updateBundle(arg0: string, arg1: string, arg2: string, arg3: string, arg4: bigint, arg5: string, arg6: string, arg7: string, arg8: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateAttendance(arg0, arg1, arg2, arg3);
+                const result = await this.actor.updateBundle(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateAttendance(arg0, arg1, arg2, arg3);
+            const result = await this.actor.updateBundle(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
             return result;
         }
     }
-    async updateBundle(arg0: string, arg1: string, arg2: string, arg3: string, arg4: bigint, arg5: string, arg6: string): Promise<void> {
+    async updateEmployee(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: number, arg6: string, arg7: string, arg8: string, arg9: string, arg10: string, arg11: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateBundle(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                const result = await this.actor.updateEmployee(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateBundle(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            const result = await this.actor.updateEmployee(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
             return result;
         }
     }
-    async updateEmployee(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string): Promise<void> {
+    async updateInventoryItem(arg0: string, arg1: string, arg2: bigint, arg3: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateEmployee(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                const result = await this.actor.updateInventoryItem(arg0, arg1, arg2, arg3);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateEmployee(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            const result = await this.actor.updateInventoryItem(arg0, arg1, arg2, arg3);
             return result;
         }
     }
-    async updateOperation(arg0: string, arg1: string, arg2: number, arg3: string, arg4: bigint): Promise<void> {
+    async updateOperation(arg0: string, arg1: string, arg2: string, arg3: number, arg4: bigint): Promise<void> {
         if (this.processError) {
             try {
                 const result = await this.actor.updateOperation(arg0, arg1, arg2, arg3, arg4);

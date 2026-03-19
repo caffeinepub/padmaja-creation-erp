@@ -1,5 +1,5 @@
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -13,6 +13,8 @@ import {
   Activity,
   AlertTriangle,
   Award,
+  BarChart3,
+  Medal,
   Package,
   TrendingUp,
   Users,
@@ -29,19 +31,19 @@ function today() {
   return new Date().toISOString().split("T")[0];
 }
 
-function getEfficiencyStatus(efficiency: number) {
-  if (efficiency >= 100)
-    return {
-      label: "Above Target",
-      className: "bg-green-100 text-green-800",
-    };
-  if (efficiency >= 80)
-    return {
-      label: "Slightly Low",
-      className: "bg-yellow-100 text-yellow-800",
-    };
-  return { label: "Low", className: "bg-red-100 text-red-800" };
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
+
+const MEDAL_COLORS = [
+  "text-yellow-400", // gold
+  "text-slate-400", // silver
+  "text-amber-600", // bronze
+];
 
 export default function AdminDashboard() {
   const todayStr = today();
@@ -56,40 +58,31 @@ export default function AdminDashboard() {
   const targets = targetsQuery.data ?? [];
   const entries = entriesQuery.data ?? [];
 
-  // Build employee map
   const empMap = new Map(employees.map((e) => [e.id, e]));
 
-  // Top and bottom performer
   const sortedRanking = [...ranking].sort(
     (a, b) => Number(b.totalQty) - Number(a.totalQty),
   );
   const topPerformer = sortedRanking[0]
-    ? `${empMap.get(sortedRanking[0].employeeId)?.name ?? "—"} (${sortedRanking[0].totalQty} pcs)`
-    : "No data today";
-  const lowPerformer =
-    sortedRanking[sortedRanking.length - 1] && sortedRanking.length > 1
-      ? `${empMap.get(sortedRanking[sortedRanking.length - 1].employeeId)?.name ?? "—"} (${sortedRanking[sortedRanking.length - 1].totalQty} pcs)`
-      : "No data today";
+    ? (empMap.get(sortedRanking[0].employeeId)?.name ?? "—")
+    : "—";
+  const topPieces = sortedRanking[0] ? Number(sortedRanking[0].totalQty) : 0;
 
-  // Efficiency calculations per employee for today
+  // Efficiency rows
   const todayProdByEmployee = new Map<string, number>();
   for (const entry of entries) {
     const prev = todayProdByEmployee.get(entry.employeeId) ?? 0;
     todayProdByEmployee.set(entry.employeeId, prev + Number(entry.quantity));
   }
-
-  // Get targets for today
   const todayTargets = targets.filter((t) => t.date === todayStr);
   const targetByOp = new Map(
     todayTargets.map((t) => [t.operationId, Number(t.targetQty)]),
   );
 
-  // Build per-employee efficiency data
   const efficiencyRows = employees
     .filter((e) => e.status === "Active" && todayProdByEmployee.has(e.id))
     .map((emp) => {
       const produced = todayProdByEmployee.get(emp.id) ?? 0;
-      // Use average target from all operations as rough daily target per employee
       const avgTarget =
         targets.length > 0
           ? targets.reduce((s, t) => s + Number(t.targetQty), 0) /
@@ -107,101 +100,185 @@ export default function AdminDashboard() {
     })
     .sort((a, b) => b.efficiency - a.efficiency);
 
-  const kpiCards = [
-    {
-      title: "Total Production Today",
-      value: statsQuery.data ? statsQuery.data.todayProduction.toString() : "—",
-      subtitle: "pieces produced",
-      icon: TrendingUp,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-    },
-    {
-      title: "Running Bundles",
-      value: statsQuery.data
-        ? statsQuery.data.runningBundlesCount.toString()
-        : "—",
-      subtitle: "in progress",
-      icon: Package,
-      color: "text-indigo-600",
-      bg: "bg-indigo-50",
-    },
-    {
-      title: "Active Employees",
-      value: employees.filter((e) => e.status === "Active").length.toString(),
-      subtitle: "working today",
-      icon: Users,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
-    },
-    {
-      title: "Top Performer",
-      value: empMap.get(sortedRanking[0]?.employeeId)?.name ?? "—",
-      subtitle: sortedRanking[0]
-        ? `${sortedRanking[0].totalQty} pcs`
-        : "No entries today",
-      icon: Award,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
-    },
-    {
-      title: "Low Performer",
-      value:
-        empMap.get(sortedRanking[sortedRanking.length - 1]?.employeeId)?.name ??
-        "—",
-      subtitle:
-        sortedRanking.length > 1
-          ? `${sortedRanking[sortedRanking.length - 1]?.totalQty} pcs`
-          : "Not enough data",
-      icon: AlertTriangle,
-      color: "text-red-600",
-      bg: "bg-red-50",
-    },
-    {
-      title: "Production Efficiency",
-      value:
-        efficiencyRows.length > 0
-          ? `${Math.round(efficiencyRows.reduce((s, r) => s + r.efficiency, 0) / efficiencyRows.length)}%`
-          : "—",
-      subtitle: "average today",
-      icon: Activity,
-      color: "text-violet-600",
-      bg: "bg-violet-50",
-    },
-  ];
+  const avgEfficiency =
+    efficiencyRows.length > 0
+      ? Math.round(
+          efficiencyRows.reduce((s, r) => s + r.efficiency, 0) /
+            efficiencyRows.length,
+        )
+      : 0;
 
   const isLoading =
     statsQuery.isLoading || rankingQuery.isLoading || employeesQuery.isLoading;
 
+  const activeEmployees = employees.filter((e) => e.status === "Active").length;
+
+  // Top KPI cards
+  const kpiTop = [
+    {
+      title: "Today's Production",
+      value: statsQuery.data?.todayPieces?.toString() ?? "0",
+      subtitle: "pieces produced today",
+      icon: TrendingUp,
+      accent: "text-blue-400",
+      accentBg: "bg-blue-500/10",
+      progress: Math.min(100, topPieces > 0 ? 85 : 0),
+      progressColor: "bg-blue-500",
+    },
+    {
+      title: "Running Bundles",
+      value: statsQuery.data?.activeBundles?.toString() ?? "0",
+      subtitle: "bundles in production",
+      icon: Package,
+      accent: "text-purple-400",
+      accentBg: "bg-purple-500/10",
+      progress: 60,
+      progressColor: "bg-purple-500",
+    },
+    {
+      title: "Active Workers",
+      value: activeEmployees.toString(),
+      subtitle: "employees on roster",
+      icon: Users,
+      accent: "text-teal-400",
+      accentBg: "bg-teal-500/10",
+      progress: 100,
+      progressColor: "bg-teal-500",
+    },
+  ];
+
+  // Second row smaller cards
+  const kpiSecond = [
+    {
+      title: "Efficiency",
+      value: avgEfficiency > 0 ? `${avgEfficiency}%` : "—",
+      icon: Activity,
+      accent:
+        avgEfficiency >= 100
+          ? "text-green-400"
+          : avgEfficiency >= 80
+            ? "text-amber-400"
+            : "text-red-400",
+      accentBg:
+        avgEfficiency >= 100
+          ? "bg-green-500/10"
+          : avgEfficiency >= 80
+            ? "bg-amber-500/10"
+            : "bg-red-500/10",
+    },
+    {
+      title: "Top Performer",
+      value: topPerformer,
+      icon: Award,
+      accent: "text-yellow-400",
+      accentBg: "bg-yellow-500/10",
+    },
+    {
+      title: "Entries Today",
+      value: entries.length.toString(),
+      icon: BarChart3,
+      accent: "text-indigo-400",
+      accentBg: "bg-indigo-500/10",
+    },
+    {
+      title: "Low Performer",
+      value:
+        sortedRanking.length > 1
+          ? (empMap.get(sortedRanking[sortedRanking.length - 1]?.employeeId)
+              ?.name ?? "—")
+          : "—",
+      icon: AlertTriangle,
+      accent: "text-red-400",
+      accentBg: "bg-red-500/10",
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-        {kpiCards.map((card) => {
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-bold text-foreground">
+          Dashboard Overview
+        </h2>
+        <p className="text-sm text-muted-foreground">{formatDate(todayStr)}</p>
+      </div>
+
+      {/* Top KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {kpiTop.map((card) => {
           const Icon = card.icon;
           return (
-            <Card key={card.title} className="shadow-card">
+            <Card
+              key={card.title}
+              className="bg-card border-border shadow-card overflow-hidden"
+            >
+              <CardContent className="p-5">
+                {isLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-9 w-24" />
+                    <Skeleton className="h-2 w-full" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {card.title}
+                      </p>
+                      <div
+                        className={`w-9 h-9 rounded-lg ${card.accentBg} flex items-center justify-center`}
+                      >
+                        <Icon className={`w-5 h-5 ${card.accent}`} />
+                      </div>
+                    </div>
+                    <p className={`text-4xl font-bold ${card.accent} mb-1`}>
+                      {card.value}
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {card.subtitle}
+                    </p>
+                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${card.progressColor} transition-all`}
+                        style={{ width: `${card.progress}%` }}
+                      />
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Second Row — Smaller Stat Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {kpiSecond.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Card
+              key={card.title}
+              className="bg-card border-border shadow-card"
+            >
               <CardContent className="p-4">
                 {isLoading ? (
                   <div className="space-y-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-7 w-16" />
-                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-6 w-20" />
                   </div>
                 ) : (
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${card.bg} flex-shrink-0`}>
-                      <Icon className={`w-4 h-4 ${card.color}`} />
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className={`mt-0.5 w-8 h-8 rounded-lg ${card.accentBg} flex items-center justify-center flex-shrink-0`}
+                    >
+                      <Icon className={`w-4 h-4 ${card.accent}`} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground font-medium leading-tight mb-0.5">
+                      <p className="text-xs text-muted-foreground font-medium leading-tight">
                         {card.title}
                       </p>
-                      <p className="font-display font-bold text-lg leading-tight text-foreground truncate">
+                      <p className="font-bold text-sm text-foreground mt-0.5 truncate">
                         {card.value}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {card.subtitle}
                       </p>
                     </div>
                   </div>
@@ -212,12 +289,13 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        {/* Operator Ranking */}
-        <Card className="shadow-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <Award className="w-4 h-4 text-amber-500" />
+      {/* Bottom panels */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Operator Rankings */}
+        <Card className="bg-card border-border shadow-card">
+          <CardHeader className="pb-3 border-b border-border">
+            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Medal className="w-4 h-4 text-yellow-400" />
               Top Operators Today
             </CardTitle>
           </CardHeader>
@@ -229,43 +307,47 @@ export default function AdminDashboard() {
                 ))}
               </div>
             ) : sortedRanking.length === 0 ? (
-              <div className="p-6 text-center text-muted-foreground text-sm">
+              <div
+                className="p-8 text-center text-muted-foreground text-sm"
+                data-ocid="ranking.empty_state"
+              >
                 No production entries today
               </div>
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">Rank</TableHead>
-                    <TableHead>Operator</TableHead>
-                    <TableHead className="text-right">Total Pcs</TableHead>
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-muted-foreground text-xs w-12">
+                      Rank
+                    </TableHead>
+                    <TableHead className="text-muted-foreground text-xs">
+                      Operator
+                    </TableHead>
+                    <TableHead className="text-muted-foreground text-xs text-right">
+                      Pieces
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedRanking.slice(0, 10).map((r, i) => (
+                  {sortedRanking.slice(0, 8).map((r, i) => (
                     <TableRow
                       key={r.employeeId}
                       data-ocid={`ranking.item.${i + 1}`}
+                      className="border-border"
                     >
                       <TableCell>
-                        <span
-                          className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                            i === 0
-                              ? "bg-amber-100 text-amber-700"
-                              : i === 1
-                                ? "bg-slate-100 text-slate-600"
-                                : i === 2
-                                  ? "bg-orange-100 text-orange-700"
-                                  : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {i + 1}
-                        </span>
+                        {i < 3 ? (
+                          <Medal className={`w-4 h-4 ${MEDAL_COLORS[i]}`} />
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-mono w-4 inline-block text-center">
+                            {i + 1}
+                          </span>
+                        )}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium text-sm text-foreground">
                         {empMap.get(r.employeeId)?.name ?? r.employeeId}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
+                      <TableCell className="text-right font-mono text-sm text-foreground">
                         {Number(r.totalQty).toLocaleString()}
                       </TableCell>
                     </TableRow>
@@ -277,10 +359,10 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Target vs Production */}
-        <Card className="shadow-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-display flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-500" />
+        <Card className="bg-card border-border shadow-card">
+          <CardHeader className="pb-3 border-b border-border">
+            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Activity className="w-4 h-4 text-blue-400" />
               Target vs Production
             </CardTitle>
           </CardHeader>
@@ -292,43 +374,53 @@ export default function AdminDashboard() {
                 ))}
               </div>
             ) : efficiencyRows.length === 0 ? (
-              <div className="p-6 text-center text-muted-foreground text-sm">
-                No production data available today
+              <div className="p-8 text-center text-muted-foreground text-sm">
+                No production data for today
               </div>
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Operator</TableHead>
-                    <TableHead className="text-right">Target</TableHead>
-                    <TableHead className="text-right">Produced</TableHead>
-                    <TableHead className="text-right">Status</TableHead>
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="text-muted-foreground text-xs">
+                      Operator
+                    </TableHead>
+                    <TableHead className="text-muted-foreground text-xs text-right">
+                      Produced
+                    </TableHead>
+                    <TableHead className="text-muted-foreground text-xs text-right">
+                      Status
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {efficiencyRows.map((row, i) => {
-                    const status = getEfficiencyStatus(row.efficiency);
+                    const eff = row.efficiency;
+                    const statusClass =
+                      eff >= 100
+                        ? "badge-green"
+                        : eff >= 80
+                          ? "badge-amber"
+                          : "badge-red";
+                    const statusLabel =
+                      eff >= 100 ? "Above" : eff >= 80 ? "On Track" : "Low";
                     return (
                       <TableRow
                         key={row.emp.id}
                         data-ocid={`efficiency.item.${i + 1}`}
+                        className="border-border"
                       >
-                        <TableCell className="font-medium text-sm">
+                        <TableCell className="font-medium text-sm text-foreground">
                           {row.emp.name}
                         </TableCell>
-                        <TableCell className="text-right text-sm font-mono">
-                          {row.target.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right text-sm font-mono">
+                        <TableCell className="text-right text-sm font-mono text-foreground">
                           {row.produced.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Badge
-                            className={`text-xs ${status.className}`}
-                            variant="secondary"
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}
                           >
-                            {status.label}
-                          </Badge>
+                            {statusLabel}
+                          </span>
                         </TableCell>
                       </TableRow>
                     );
@@ -340,23 +432,62 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Summary row */}
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground mb-1">Top Performer</p>
-            <p className="font-medium text-foreground">{topPerformer}</p>
+      {/* Recent Entries */}
+      {entries.length > 0 && (
+        <Card className="bg-card border-border shadow-card">
+          <CardHeader className="pb-3 border-b border-border">
+            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-blue-400" />
+              Live Production Feed
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-muted-foreground text-xs">
+                    Employee
+                  </TableHead>
+                  <TableHead className="text-muted-foreground text-xs hidden sm:table-cell">
+                    Bundle
+                  </TableHead>
+                  <TableHead className="text-muted-foreground text-xs text-right">
+                    Qty
+                  </TableHead>
+                  <TableHead className="text-muted-foreground text-xs text-right">
+                    Amount
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entries
+                  .slice(-8)
+                  .reverse()
+                  .map((entry, i) => (
+                    <TableRow
+                      key={entry.id}
+                      data-ocid={`feed.item.${i + 1}`}
+                      className="border-border"
+                    >
+                      <TableCell className="text-sm text-foreground font-medium">
+                        {empMap.get(entry.employeeId)?.name ?? entry.employeeId}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground font-mono hidden sm:table-cell">
+                        {entry.bundleId}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-mono text-foreground">
+                        {Number(entry.quantity).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-mono text-green-400">
+                        ₹{entry.amount.toFixed(0)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
-        <Card className="shadow-card">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground mb-1">
-              Lowest Performer
-            </p>
-            <p className="font-medium text-foreground">{lowPerformer}</p>
-          </CardContent>
-        </Card>
-      </div>
+      )}
     </div>
   );
 }

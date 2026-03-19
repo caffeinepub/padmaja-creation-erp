@@ -25,19 +25,16 @@ function today() {
 
 function currentMonth() {
   const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function statusBadge(status: string) {
-  if (status === "Present") return "bg-green-100 text-green-800";
-  if (status === "Absent") return "bg-red-100 text-red-800";
-  if (status === "HalfDay") return "bg-yellow-100 text-yellow-800";
-  return "bg-muted text-muted-foreground";
+function statusBadgeClass(status: string) {
+  if (status === "Present") return "badge-green";
+  if (status === "Absent") return "badge-red";
+  if (status === "HalfDay") return "badge-amber";
+  return "";
 }
 
-// ── Dept filter chips (reusable) ───────────────────────────────────────────────
 function DeptFilterChips({
   value,
   onChange,
@@ -51,35 +48,25 @@ function DeptFilterChips({
 }) {
   return (
     <div className="flex gap-2 flex-wrap">
-      <button
-        type="button"
-        data-ocid={allOcid}
-        onClick={() => onChange("All")}
-        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-          value === "All"
-            ? "bg-primary text-primary-foreground border-primary"
-            : "bg-background text-muted-foreground border-border hover:border-primary/50"
-        }`}
-      >
-        All Departments
-      </button>
-      <button
-        type="button"
-        data-ocid={finishingOcid}
-        onClick={() => onChange("Finishing")}
-        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-          value === "Finishing"
-            ? "bg-primary text-primary-foreground border-primary"
-            : "bg-background text-muted-foreground border-border hover:border-primary/50"
-        }`}
-      >
-        Finishing Only
-      </button>
+      {(["All", "Finishing"] as const).map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          data-ocid={opt === "All" ? allOcid : finishingOcid}
+          onClick={() => onChange(opt)}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+            value === opt
+              ? "bg-primary/20 text-primary border-primary/40"
+              : "bg-muted/40 text-muted-foreground border-border hover:border-primary/40"
+          }`}
+        >
+          {opt === "All" ? "All Departments" : "Finishing Only"}
+        </button>
+      ))}
     </div>
   );
 }
 
-// ── Daily Tab ─────────────────────────────────────────────────────────────────
 function DailyTab() {
   const [date, setDate] = useState(today());
   const [deptFilter, setDeptFilter] = useState<"All" | "Finishing">("All");
@@ -135,43 +122,46 @@ function DailyTab() {
         finishingOcid="attendance.daily.finishing_filter.toggle"
       />
 
-      {/* Summary */}
       {attendance.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-center">
-            <p className="text-2xl font-display font-bold text-green-700">
+          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-center">
+            <p className="text-2xl font-bold text-green-400">
               {counts.present}
             </p>
-            <p className="text-xs text-green-600">Present</p>
+            <p className="text-xs text-green-500/70">Present</p>
           </div>
-          <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
-            <p className="text-2xl font-display font-bold text-red-700">
-              {counts.absent}
-            </p>
-            <p className="text-xs text-red-600">Absent</p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-center">
+            <p className="text-2xl font-bold text-red-400">{counts.absent}</p>
+            <p className="text-xs text-red-500/70">Absent</p>
           </div>
-          <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3 text-center">
-            <p className="text-2xl font-display font-bold text-yellow-700">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
+            <p className="text-2xl font-bold text-amber-400">
               {counts.halfDay}
             </p>
-            <p className="text-xs text-yellow-600">Half Day</p>
+            <p className="text-xs text-amber-500/70">Half Day</p>
           </div>
         </div>
       )}
 
-      <div className="rounded-lg border border-border overflow-hidden bg-card shadow-card">
+      <div className="rounded-xl border border-border overflow-hidden bg-card shadow-card">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>Employee</TableHead>
-              <TableHead className="hidden sm:table-cell">Department</TableHead>
-              <TableHead>Attendance Status</TableHead>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground text-xs">
+                Employee
+              </TableHead>
+              <TableHead className="text-muted-foreground text-xs hidden sm:table-cell">
+                Department
+              </TableHead>
+              <TableHead className="text-muted-foreground text-xs">
+                Status
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {employeesQuery.isLoading || attendanceQuery.isLoading ? (
-              ["s1", "s2", "s3", "s4", "s5"].slice(0, 5).map((skId) => (
-                <TableRow key={skId}>
+              [1, 2, 3, 4, 5].map((sk) => (
+                <TableRow key={sk}>
                   <TableCell colSpan={3}>
                     <Skeleton className="h-8 w-full" />
                   </TableCell>
@@ -184,25 +174,25 @@ function DailyTab() {
                   className="text-center py-12 text-muted-foreground"
                   data-ocid="attendance.empty_state"
                 >
-                  <CalendarCheck className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p>
-                    {deptFilter === "Finishing"
-                      ? "No finishing department employees found"
-                      : "No active employees found"}
-                  </p>
+                  <CalendarCheck className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  <p>No active employees found</p>
                 </TableCell>
               </TableRow>
             ) : (
               employees.map((emp, i) => {
                 const status = attMap.get(emp.id);
                 return (
-                  <TableRow key={emp.id} data-ocid={`attendance.item.${i + 1}`}>
+                  <TableRow
+                    key={emp.id}
+                    data-ocid={`attendance.item.${i + 1}`}
+                    className="border-border"
+                  >
                     <TableCell>
-                      <div>
-                        <div className="font-medium text-sm">{emp.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {emp.phone}
-                        </div>
+                      <div className="font-medium text-sm text-foreground">
+                        {emp.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {emp.phone}
                       </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
@@ -210,12 +200,11 @@ function DailyTab() {
                     </TableCell>
                     <TableCell>
                       {status ? (
-                        <Badge
-                          className={`text-xs ${statusBadge(status)}`}
-                          variant="secondary"
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(status)}`}
                         >
-                          {status}
-                        </Badge>
+                          {status === "HalfDay" ? "Half Day" : status}
+                        </span>
                       ) : (
                         <span className="text-xs text-muted-foreground italic">
                           Not marked
@@ -233,7 +222,6 @@ function DailyTab() {
   );
 }
 
-// ── Monthly Tab ───────────────────────────────────────────────────────────────
 function MonthlyTab() {
   const [month, setMonth] = useState(currentMonth());
   const [deptFilter, setDeptFilter] = useState<"All" | "Finishing">("All");
@@ -250,14 +238,12 @@ function MonthlyTab() {
 
   const attendance = attendanceQuery.data ?? [];
 
-  // Build per-employee counts
   type EmpStats = {
     present: number;
     absent: number;
     halfDay: number;
     total: number;
   };
-
   const statsMap = new Map<string, EmpStats>();
   for (const emp of employees) {
     statsMap.set(emp.id, { present: 0, absent: 0, halfDay: 0, total: 0 });
@@ -271,7 +257,6 @@ function MonthlyTab() {
     else if (rec.status === "HalfDay") s.halfDay += 1;
   }
 
-  // Grand totals
   const grand = { present: 0, absent: 0, halfDay: 0, total: 0 };
   for (const s of statsMap.values()) {
     grand.present += s.present;
@@ -305,52 +290,51 @@ function MonthlyTab() {
         finishingOcid="attendance.monthly.finishing_filter.toggle"
       />
 
-      {/* Monthly summary cards */}
       {attendance.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-green-50 border border-green-100 rounded-lg p-3 text-center">
-            <p className="text-2xl font-display font-bold text-green-700">
-              {grand.present}
-            </p>
-            <p className="text-xs text-green-600">Total Present Days</p>
+          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-center">
+            <p className="text-2xl font-bold text-green-400">{grand.present}</p>
+            <p className="text-xs text-green-500/70">Present Days</p>
           </div>
-          <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
-            <p className="text-2xl font-display font-bold text-red-700">
-              {grand.absent}
-            </p>
-            <p className="text-xs text-red-600">Total Absent Days</p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-center">
+            <p className="text-2xl font-bold text-red-400">{grand.absent}</p>
+            <p className="text-xs text-red-500/70">Absent Days</p>
           </div>
-          <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3 text-center">
-            <p className="text-2xl font-display font-bold text-yellow-700">
-              {grand.halfDay}
-            </p>
-            <p className="text-xs text-yellow-600">Total Half Days</p>
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
+            <p className="text-2xl font-bold text-amber-400">{grand.halfDay}</p>
+            <p className="text-xs text-amber-500/70">Half Days</p>
           </div>
         </div>
       )}
 
-      <div className="rounded-lg border border-border overflow-hidden bg-card shadow-card">
+      <div className="rounded-xl border border-border overflow-hidden bg-card shadow-card">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>Employee</TableHead>
-              <TableHead className="hidden sm:table-cell">Department</TableHead>
-              <TableHead className="text-center">
-                <span className="text-green-700">Present</span>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-muted-foreground text-xs">
+                Employee
               </TableHead>
-              <TableHead className="text-center">
-                <span className="text-red-700">Absent</span>
+              <TableHead className="text-muted-foreground text-xs hidden sm:table-cell">
+                Dept
               </TableHead>
-              <TableHead className="text-center hidden md:table-cell">
-                <span className="text-yellow-700">Half Day</span>
+              <TableHead className="text-muted-foreground text-xs text-center">
+                Present
               </TableHead>
-              <TableHead className="text-center">Total Days</TableHead>
+              <TableHead className="text-muted-foreground text-xs text-center">
+                Absent
+              </TableHead>
+              <TableHead className="text-muted-foreground text-xs text-center hidden md:table-cell">
+                Half Day
+              </TableHead>
+              <TableHead className="text-muted-foreground text-xs text-center">
+                Total
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              ["s1", "s2", "s3", "s4", "s5"].map((skId) => (
-                <TableRow key={skId}>
+              [1, 2, 3, 4, 5].map((sk) => (
+                <TableRow key={sk}>
                   <TableCell colSpan={6}>
                     <Skeleton className="h-8 w-full" />
                   </TableCell>
@@ -363,12 +347,8 @@ function MonthlyTab() {
                   className="text-center py-12 text-muted-foreground"
                   data-ocid="attendance.monthly_empty_state"
                 >
-                  <CalendarCheck className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p>
-                    {deptFilter === "Finishing"
-                      ? "No finishing department employees found"
-                      : "No active employees found"}
-                  </p>
+                  <CalendarCheck className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                  <p>No employees found</p>
                 </TableCell>
               </TableRow>
             ) : (
@@ -384,27 +364,22 @@ function MonthlyTab() {
                     <TableRow
                       key={emp.id}
                       data-ocid={`attendance.monthly.item.${i + 1}`}
+                      className="border-border"
                     >
-                      <TableCell>
-                        <div className="font-medium text-sm">{emp.name}</div>
+                      <TableCell className="font-medium text-sm text-foreground">
+                        {emp.name}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                         {emp.department}
                       </TableCell>
-                      <TableCell className="text-center">
-                        <span className="font-semibold text-green-700">
-                          {s.present}
-                        </span>
+                      <TableCell className="text-center text-green-400 font-semibold">
+                        {s.present}
                       </TableCell>
-                      <TableCell className="text-center">
-                        <span className="font-semibold text-red-700">
-                          {s.absent}
-                        </span>
+                      <TableCell className="text-center text-red-400 font-semibold">
+                        {s.absent}
                       </TableCell>
-                      <TableCell className="text-center hidden md:table-cell">
-                        <span className="font-semibold text-yellow-700">
-                          {s.halfDay}
-                        </span>
+                      <TableCell className="text-center text-amber-400 font-semibold hidden md:table-cell">
+                        {s.halfDay}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant="outline" className="text-xs font-mono">
@@ -414,20 +389,19 @@ function MonthlyTab() {
                     </TableRow>
                   );
                 })}
-                {/* Grand totals row */}
                 {employees.length > 0 && (
-                  <TableRow className="bg-muted/30 font-semibold border-t-2 border-border">
-                    <TableCell className="text-sm font-bold" colSpan={1}>
+                  <TableRow className="bg-muted/20 border-t-2 border-border">
+                    <TableCell className="text-sm font-bold text-foreground">
                       Grand Total
                     </TableCell>
                     <TableCell className="hidden sm:table-cell" />
-                    <TableCell className="text-center text-green-700 font-bold">
+                    <TableCell className="text-center text-green-400 font-bold">
                       {grand.present}
                     </TableCell>
-                    <TableCell className="text-center text-red-700 font-bold">
+                    <TableCell className="text-center text-red-400 font-bold">
                       {grand.absent}
                     </TableCell>
-                    <TableCell className="text-center text-yellow-700 font-bold hidden md:table-cell">
+                    <TableCell className="text-center text-amber-400 font-bold hidden md:table-cell">
                       {grand.halfDay}
                     </TableCell>
                     <TableCell className="text-center">
@@ -466,11 +440,9 @@ export default function AttendancePage() {
             Monthly
           </TabsTrigger>
         </TabsList>
-
         <TabsContent value="daily" className="mt-4">
           <DailyTab />
         </TabsContent>
-
         <TabsContent value="monthly" className="mt-4">
           <MonthlyTab />
         </TabsContent>

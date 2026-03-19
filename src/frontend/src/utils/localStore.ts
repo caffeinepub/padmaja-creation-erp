@@ -1,5 +1,5 @@
-// Local storage data store for all app data
-// This replaces ICP backend calls since the app uses local username/password auth
+// Local storage data store - kept for offline/compatibility use
+// Main data is now stored on ICP blockchain via backend actor
 
 import type {
   Attendance,
@@ -7,8 +7,15 @@ import type {
   Employee,
   Operation,
   ProductionEntry,
-  Target,
 } from "../backend.d";
+
+// Local Target type (not in backend.d)
+export interface Target {
+  id: string;
+  operationId: string;
+  targetQty: bigint;
+  date: string;
+}
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 const KEYS = {
@@ -21,7 +28,6 @@ const KEYS = {
   counters: "pc_erp_counters",
 };
 
-// ── Counter management ─────────────────────────────────────────────────────────
 function getCounters(): Record<string, number> {
   try {
     const raw = localStorage.getItem(KEYS.counters);
@@ -39,7 +45,6 @@ function nextId(key: string, prefix: string): string {
   return `${prefix}${counters[key]}`;
 }
 
-// ── Generic helpers ────────────────────────────────────────────────────────────
 function getAll<T>(key: string): T[] {
   try {
     const raw = localStorage.getItem(key);
@@ -54,14 +59,11 @@ function saveAll<T>(key: string, items: T[]): void {
   localStorage.setItem(key, JSON.stringify(items));
 }
 
-// ── Extended Employee (with local-only fields) ────────────────────────────────
 export interface ExtendedEmployee extends Employee {
   accountNumber: string;
   aadharNumber: string;
 }
 
-// ── Serialization helpers (bigint ↔ number) ────────────────────────────────────
-// localStorage JSON doesn't support bigint, so we store as number strings and convert back
 function serializeEmployee(e: ExtendedEmployee): object {
   return { ...e };
 }
@@ -109,7 +111,6 @@ function deserializeProductionEntry(
   } as unknown as ProductionEntry;
 }
 
-// ── Employees ─────────────────────────────────────────────────────────────────
 export const employeeStore = {
   getAll(): ExtendedEmployee[] {
     return getAll<Record<string, unknown>>(KEYS.employees).map(
@@ -158,7 +159,6 @@ export const employeeStore = {
   },
 };
 
-// ── Operations ────────────────────────────────────────────────────────────────
 export const operationStore = {
   getAll(): Operation[] {
     return getAll<Record<string, unknown>>(KEYS.operations).map(
@@ -186,7 +186,6 @@ export const operationStore = {
   },
 };
 
-// ── Bundles ───────────────────────────────────────────────────────────────────
 export const bundleStore = {
   getAll(): Bundle[] {
     return getAll<Record<string, unknown>>(KEYS.bundles).map(deserializeBundle);
@@ -212,7 +211,6 @@ export const bundleStore = {
   },
 };
 
-// ── Production Entries ────────────────────────────────────────────────────────
 export const productionStore = {
   getAll(): ProductionEntry[] {
     return getAll<Record<string, unknown>>(KEYS.productionEntries).map(
@@ -239,7 +237,6 @@ export const productionStore = {
   },
 };
 
-// ── Attendance ────────────────────────────────────────────────────────────────
 export const attendanceStore = {
   getAll(): Attendance[] {
     return getAll<Attendance>(KEYS.attendance);
@@ -249,7 +246,15 @@ export const attendanceStore = {
     const all = attendanceStore
       .getAll()
       .filter((a) => !(a.date === date && a.employeeId === employeeId));
-    all.push({ id, date, employeeId, status });
+    const rec: Attendance = {
+      id,
+      date,
+      employeeId,
+      status,
+      checkIn: "",
+      checkOut: "",
+    };
+    all.push(rec);
     saveAll(KEYS.attendance, all);
     return id;
   },
@@ -257,11 +262,17 @@ export const attendanceStore = {
     const all = attendanceStore.getAll();
     const idx = all.findIndex((a) => a.id === id);
     if (idx === -1) {
-      // upsert by date+employee
       attendanceStore.mark(date, employeeId, status);
       return;
     }
-    all[idx] = { id, date, employeeId, status };
+    all[idx] = {
+      id,
+      date,
+      employeeId,
+      status,
+      checkIn: all[idx].checkIn,
+      checkOut: all[idx].checkOut,
+    };
     saveAll(KEYS.attendance, all);
   },
   getByDate(date: string): Attendance[] {
@@ -269,7 +280,6 @@ export const attendanceStore = {
   },
 };
 
-// ── Targets ───────────────────────────────────────────────────────────────────
 export const targetStore = {
   getAll(): Target[] {
     return getAll<Record<string, unknown>>(KEYS.targets).map(

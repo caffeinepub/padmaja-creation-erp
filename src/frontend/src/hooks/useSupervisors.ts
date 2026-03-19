@@ -1,5 +1,14 @@
-import { useState } from "react";
-import type { SupervisorAccount } from "./useAuth";
+// Supervisor management - kept for compatibility
+// Main auth is now via Internet Identity
+
+export interface SupervisorAccount {
+  id: string;
+  username: string;
+  password: string;
+  name: string;
+  status: "Active" | "Inactive";
+  createdAt: string;
+}
 
 const SUPERVISORS_KEY = "pc_erp_supervisors";
 
@@ -29,6 +38,8 @@ function generateId(existing: SupervisorAccount[]): string {
   return `SUP${maxNum + 1}`;
 }
 
+import { useState } from "react";
+
 export function useSupervisors() {
   const [supervisors, setSupervisorsState] =
     useState<SupervisorAccount[]>(getSupervisors);
@@ -44,21 +55,16 @@ export function useSupervisors() {
   ): { ok: boolean; error?: string } => {
     const current = getSupervisors();
     const trimmed = username.trim();
-
     if (!trimmed || !password.trim() || !name.trim()) {
       return { ok: false, error: "All fields are required." };
     }
-
-    // Check uniqueness (also can't be "admin")
     if (trimmed === "admin") {
       return { ok: false, error: 'Username "admin" is reserved.' };
     }
-
     const exists = current.some((s) => s.username === trimmed);
     if (exists) {
       return { ok: false, error: "Username already exists." };
     }
-
     const newSupervisor: SupervisorAccount = {
       id: generateId(current),
       username: trimmed,
@@ -67,69 +73,42 @@ export function useSupervisors() {
       status: "Active",
       createdAt: new Date().toISOString(),
     };
-
     const updated = [...current, newSupervisor];
     setSupervisors(updated);
     setSupervisorsState(updated);
     return { ok: true };
   };
 
-  const updateSupervisor = (
-    id: string,
-    username: string,
-    password: string,
-    name: string,
-    status: "Active" | "Inactive",
-  ): { ok: boolean; error?: string } => {
-    const current = getSupervisors();
-    const trimmedUsername = username.trim();
-    const trimmedName = name.trim();
-
-    if (!trimmedUsername || !trimmedName) {
-      return { ok: false, error: "Name and username are required." };
-    }
-
-    if (trimmedUsername === "admin") {
-      return { ok: false, error: 'Username "admin" is reserved.' };
-    }
-
-    // Check uniqueness excluding self
-    const duplicate = current.find(
-      (s) => s.username === trimmedUsername && s.id !== id,
-    );
-    if (duplicate) {
-      return { ok: false, error: "Username already exists." };
-    }
-
-    const updated = current.map((s) => {
-      if (s.id !== id) return s;
-      return {
-        ...s,
-        username: trimmedUsername,
-        name: trimmedName,
-        status,
-        // Only update password if a new one is provided
-        ...(password.trim() ? { password: password.trim() } : {}),
-      };
-    });
-
+  const deleteSupervisor = (id: string): void => {
+    const updated = getSupervisors().filter((s) => s.id !== id);
     setSupervisors(updated);
     setSupervisorsState(updated);
-    return { ok: true };
   };
 
-  const deleteSupervisor = (id: string) => {
+  const updateSupervisor = (
+    id: string,
+    updates: Partial<Omit<SupervisorAccount, "id" | "createdAt">>,
+  ): { ok: boolean; error?: string } => {
     const current = getSupervisors();
-    const updated = current.filter((s) => s.id !== id);
-    setSupervisors(updated);
-    setSupervisorsState(updated);
+    const idx = current.findIndex((s) => s.id === id);
+    if (idx === -1) return { ok: false, error: "Supervisor not found." };
+    if (updates.username) {
+      const dup = current.some(
+        (s) => s.username === updates.username && s.id !== id,
+      );
+      if (dup) return { ok: false, error: "Username already exists." };
+    }
+    current[idx] = { ...current[idx], ...updates };
+    setSupervisors(current);
+    setSupervisorsState([...current]);
+    return { ok: true };
   };
 
   return {
     supervisors,
-    refresh,
     createSupervisor,
-    updateSupervisor,
     deleteSupervisor,
+    updateSupervisor,
+    refresh,
   };
 }

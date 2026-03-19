@@ -3,103 +3,195 @@ import type {
   Attendance,
   Bundle,
   Employee,
+  InventoryItem,
   Operation,
   ProductionEntry,
-  Target,
+  QualityControl,
+  Report,
   UserProfile,
 } from "../backend.d";
-import {
-  attendanceStore,
-  bundleStore,
-  employeeStore,
-  operationStore,
-  productionStore,
-  targetStore,
-} from "../utils/localStore";
-import { getStoredPin, pushMasterData } from "./useAutoSync";
+import { useActor } from "./useActor";
 
-/** Call this after any admin mutation that changes master data */
-function autoSyncAfterMutation(): void {
-  const pin = getStoredPin();
-  const role = localStorage.getItem("pc_erp_sync_role");
-  if (pin && role === "admin") {
-    pushMasterData(pin);
-  }
+// Local derived type (no backend endpoint for targets)
+export interface Target {
+  id: string;
+  operationId: string;
+  targetQty: bigint;
+  date: string;
 }
 
-// ── Auth (kept for compatibility, but no longer used for data) ─────────────────
+function today() {
+  return new Date().toISOString().split("T")[0];
+}
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
 
 export function useGetCallerUserProfile() {
-  return useQuery<UserProfile | null>({
+  const { actor, isFetching } = useActor();
+  const query = useQuery<UserProfile | null>({
     queryKey: ["currentUserProfile"],
-    queryFn: async () => null,
-    staleTime: Number.POSITIVE_INFINITY,
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getCallerUserProfile();
+    },
+    enabled: !!actor && !isFetching,
+    retry: false,
   });
-}
-
-export function useGetCallerUserRole() {
-  return useQuery({
-    queryKey: ["callerUserRole"],
-    queryFn: async () => "user" as const,
-    staleTime: Number.POSITIVE_INFINITY,
-  });
+  return {
+    ...query,
+    isLoading: isFetching || query.isLoading,
+    isFetched: !!actor && query.isFetched,
+  };
 }
 
 export function useSaveCallerUserProfile() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
-    mutationFn: async (_profile: UserProfile) => {
-      // no-op for local auth
+    mutationFn: async (profile: UserProfile) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.saveCallerUserProfile(profile);
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      void qc.invalidateQueries({ queryKey: ["callerUserProfile"] });
     },
+  });
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
+export function useGetDashboardStats() {
+  const { actor, isFetching } = useActor();
+  return useQuery<{
+    todayPieces: bigint;
+    todayAmount: number;
+    activeBundles: number;
+    presentWorkers: number;
+  }>({
+    queryKey: ["dashboardStats"],
+    queryFn: async () => {
+      if (!actor)
+        return {
+          todayPieces: BigInt(0),
+          todayAmount: 0,
+          activeBundles: 0,
+          presentWorkers: 0,
+        };
+      const [prodSummary, bundles, attendance] = await Promise.all([
+        actor.getProductionSummaryForToday(),
+        actor.getBundles(),
+        actor.getAttendanceByDate(today()),
+      ]);
+      return {
+        todayPieces: prodSummary[0],
+        todayAmount: prodSummary[1],
+        activeBundles: bundles.filter(
+          (b) => b.status === "Running" || b.status === "InProgress",
+        ).length,
+        presentWorkers: attendance.filter((a) => a.status === "Present").length,
+      };
+    },
+    enabled: !!actor && !isFetching,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useGetOperatorRankingToday(date: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<{ employeeId: string; totalQty: bigint }[]>({
+    queryKey: ["operatorRankingToday", date],
+    queryFn: async () => {
+      if (!actor) return [];
+      const entries = await actor.getEntriesByDate(date);
+      const map = new Map<string, bigint>();
+      for (const entry of entries) {
+        const prev = map.get(entry.employeeId) ?? BigInt(0);
+        map.set(entry.employeeId, prev + entry.quantity);
+      }
+      return Array.from(map.entries()).map(([employeeId, totalQty]) => ({
+        employeeId,
+        totalQty,
+      }));
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+// ── Targets (derived from Operations) ────────────────────────────────────────
+
+export function useGetTargets() {
+  const { actor, isFetching } = useActor();
+  const todayStr = today();
+  return useQuery<Target[]>({
+    queryKey: ["targets"],
+    queryFn: async () => {
+      if (!actor) return [];
+      const ops = await actor.getOperations();
+      return ops.map((op) => ({
+        id: op.id,
+        operationId: op.id,
+        targetQty: op.dailyTarget,
+        date: todayStr,
+      }));
+    },
+    enabled: !!actor && !isFetching,
   });
 }
 
 // ── Employees ─────────────────────────────────────────────────────────────────
 
 export function useGetEmployees() {
+  const { actor, isFetching } = useActor();
   return useQuery<Employee[]>({
     queryKey: ["employees"],
-    queryFn: async () => employeeStore.getAll(),
-    staleTime: 0,
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getEmployees();
+    },
+    enabled: !!actor && !isFetching,
   });
 }
 
 export function useAddEmployee() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
       name: string;
       phone: string;
       dept: string;
       salaryType: string;
+      rate: number;
+      bank: string;
+      aadhaar: string;
       joinDate: string;
       status: string;
-      accountNumber: string;
-      aadharNumber: string;
-    }): Promise<string> => {
-      return employeeStore.add({
-        name: data.name,
-        phone: data.phone,
-        department: data.dept,
-        salaryType: data.salaryType,
-        joinDate: data.joinDate,
-        status: data.status,
-        accountNumber: data.accountNumber,
-        aadharNumber: data.aadharNumber,
-      });
+      skill: string;
+      specialization: string;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.addEmployee(
+        data.name,
+        data.phone,
+        data.dept,
+        data.salaryType,
+        data.rate,
+        data.bank,
+        data.aadhaar,
+        data.joinDate,
+        data.status,
+        data.skill,
+        data.specialization,
+      );
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["employees"] });
-      autoSyncAfterMutation();
-    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
   });
 }
 
 export function useUpdateEmployee() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
       id: string;
@@ -107,108 +199,118 @@ export function useUpdateEmployee() {
       phone: string;
       dept: string;
       salaryType: string;
+      rate: number;
+      bank: string;
+      aadhaar: string;
       joinDate: string;
       status: string;
-      accountNumber: string;
-      aadharNumber: string;
-    }): Promise<void> => {
-      employeeStore.update(data.id, {
-        name: data.name,
-        phone: data.phone,
-        department: data.dept,
-        salaryType: data.salaryType,
-        joinDate: data.joinDate,
-        status: data.status,
-        accountNumber: data.accountNumber,
-        aadharNumber: data.aadharNumber,
-      });
+      skill: string;
+      specialization: string;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.updateEmployee(
+        data.id,
+        data.name,
+        data.phone,
+        data.dept,
+        data.salaryType,
+        data.rate,
+        data.bank,
+        data.aadhaar,
+        data.joinDate,
+        data.status,
+        data.skill,
+        data.specialization,
+      );
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["employees"] });
-      autoSyncAfterMutation();
-    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
   });
 }
 
 export function useDeleteEmployee() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
-    mutationFn: async (id: string): Promise<void> => {
-      employeeStore.delete(id);
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.deleteEmployee(id);
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["employees"] });
-      autoSyncAfterMutation();
-    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["employees"] }),
   });
 }
 
 // ── Operations ────────────────────────────────────────────────────────────────
 
 export function useGetOperations() {
+  const { actor, isFetching } = useActor();
   return useQuery<Operation[]>({
     queryKey: ["operations"],
-    queryFn: async () => operationStore.getAll(),
-    staleTime: 0,
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getOperations();
+    },
+    enabled: !!actor && !isFetching,
   });
 }
 
 export function useAddOperation() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
       name: string;
-      rate: number;
       dept: string;
+      rate: number;
       target: bigint;
-    }): Promise<string> => {
-      return operationStore.add({
-        name: data.name,
-        ratePerPiece: data.rate,
-        department: data.dept,
-        dailyTarget: data.target,
-      });
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.addOperation(data.name, data.dept, data.rate, data.target);
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["operations"] });
-      autoSyncAfterMutation();
+      void qc.invalidateQueries({ queryKey: ["targets"] });
     },
   });
 }
 
 export function useUpdateOperation() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
       id: string;
       name: string;
-      rate: number;
       dept: string;
+      rate: number;
       target: bigint;
-    }): Promise<void> => {
-      operationStore.update(data.id, {
-        name: data.name,
-        ratePerPiece: data.rate,
-        department: data.dept,
-        dailyTarget: data.target,
-      });
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.updateOperation(
+        data.id,
+        data.name,
+        data.dept,
+        data.rate,
+        data.target,
+      );
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["operations"] });
-      autoSyncAfterMutation();
+      void qc.invalidateQueries({ queryKey: ["targets"] });
     },
   });
 }
 
 export function useDeleteOperation() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
-    mutationFn: async (id: string): Promise<void> => {
-      operationStore.delete(id);
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.deleteOperation(id);
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["operations"] });
-      autoSyncAfterMutation();
+      void qc.invalidateQueries({ queryKey: ["targets"] });
     },
   });
 }
@@ -216,310 +318,475 @@ export function useDeleteOperation() {
 // ── Bundles ───────────────────────────────────────────────────────────────────
 
 export function useGetBundles() {
+  const { actor, isFetching } = useActor();
   return useQuery<Bundle[]>({
     queryKey: ["bundles"],
-    queryFn: async () => bundleStore.getAll(),
-    staleTime: 0,
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getBundles();
+    },
+    enabled: !!actor && !isFetching,
   });
 }
 
 export function useAddBundle() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
-      styleNumber: string;
+      style: string;
       size: string;
       color: string;
       qty: bigint;
-      createdDate: string;
+      date: string;
       status: string;
-    }): Promise<string> => {
-      return bundleStore.add({
-        styleNumber: data.styleNumber,
-        size: data.size,
-        color: data.color,
-        quantity: data.qty,
-        createdDate: data.createdDate,
-        status: data.status,
-      });
+      stage: string;
+      priority: string;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.addBundle(
+        data.style,
+        data.size,
+        data.color,
+        data.qty,
+        data.date,
+        data.status,
+        data.stage,
+        data.priority,
+      );
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["bundles"] });
-      autoSyncAfterMutation();
-    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["bundles"] }),
   });
 }
 
 export function useUpdateBundle() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
       id: string;
-      styleNumber: string;
+      style: string;
       size: string;
       color: string;
       qty: bigint;
-      createdDate: string;
+      date: string;
       status: string;
-    }): Promise<void> => {
-      bundleStore.update(data.id, {
-        styleNumber: data.styleNumber,
-        size: data.size,
-        color: data.color,
-        quantity: data.qty,
-        createdDate: data.createdDate,
-        status: data.status,
-      });
+      stage: string;
+      priority: string;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.updateBundle(
+        data.id,
+        data.style,
+        data.size,
+        data.color,
+        data.qty,
+        data.date,
+        data.status,
+        data.stage,
+        data.priority,
+      );
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["bundles"] });
-      autoSyncAfterMutation();
-    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["bundles"] }),
   });
 }
 
 export function useDeleteBundle() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
-    mutationFn: async (id: string): Promise<void> => {
-      bundleStore.delete(id);
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.deleteBundle(id);
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["bundles"] });
-      autoSyncAfterMutation();
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["bundles"] }),
+  });
+}
+
+export function useGetBundleByQRCode() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (qrCode: string) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.getBundleByQRCode(qrCode);
     },
   });
 }
 
-export function useGetBundleProgress(bundleId: string) {
-  return useQuery<Array<{ completed: boolean; operationId: string }>>({
-    queryKey: ["bundleProgress", bundleId],
-    queryFn: async () => {
-      if (!bundleId) return [];
-      const entries = productionStore
-        .getAll()
-        .filter((e) => e.bundleId === bundleId);
-      const opSet = new Set(entries.map((e) => e.operationId));
-      return Array.from(opSet).map((opId) => ({
-        operationId: opId,
-        completed: true,
-      }));
-    },
-    enabled: !!bundleId,
-    staleTime: 0,
-  });
-}
-
-// ── Production Entries ────────────────────────────────────────────────────────
+// ── Production ────────────────────────────────────────────────────────────────
 
 export function useGetProductionEntries() {
+  const { actor, isFetching } = useActor();
   return useQuery<ProductionEntry[]>({
     queryKey: ["productionEntries"],
-    queryFn: async () => productionStore.getAll(),
-    staleTime: 0,
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getProductionEntries();
+    },
+    enabled: !!actor && !isFetching,
   });
 }
 
 export function useGetEntriesByDate(date: string) {
+  const { actor, isFetching } = useActor();
   return useQuery<ProductionEntry[]>({
     queryKey: ["productionEntries", "date", date],
     queryFn: async () => {
-      if (!date) return [];
-      return productionStore.getByDate(date);
+      if (!actor) return [];
+      return actor.getEntriesByDate(date);
     },
-    enabled: !!date,
-    staleTime: 0,
+    enabled: !!actor && !isFetching && !!date,
   });
 }
 
-export function useGetEntriesByMonth(year: number, month: number) {
+export function useGetEntriesByEmployee(employeeId: string) {
+  const { actor, isFetching } = useActor();
   return useQuery<ProductionEntry[]>({
-    queryKey: ["productionEntries", "month", year, month],
-    queryFn: async () => productionStore.getByMonth(year, month),
-    staleTime: 0,
+    queryKey: ["productionEntries", "employee", employeeId],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getEntriesByEmployee(employeeId);
+    },
+    enabled: !!actor && !isFetching && !!employeeId,
+  });
+}
+
+export function useGetEntriesByBundle(bundleId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<ProductionEntry[]>({
+    queryKey: ["productionEntries", "bundle", bundleId],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getEntriesByBundle(bundleId);
+    },
+    enabled: !!actor && !isFetching && !!bundleId,
   });
 }
 
 export function useAddProductionEntry() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
       date: string;
       employeeId: string;
+      supervisorId?: string;
       operationId: string;
       bundleId: string;
       qty: bigint;
       rate: number;
       amount: number;
-    }): Promise<string> => {
-      return productionStore.add({
-        date: data.date,
-        employeeId: data.employeeId,
-        operationId: data.operationId,
-        bundleId: data.bundleId,
-        quantity: data.qty,
-        rate: data.rate,
-        amount: data.amount,
-      });
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.addProductionEntry(
+        data.date,
+        data.employeeId,
+        data.supervisorId ?? "",
+        data.operationId,
+        data.bundleId,
+        data.qty,
+        data.rate,
+        data.amount,
+      );
     },
-    onSuccess: () =>
-      void qc.invalidateQueries({ queryKey: ["productionEntries"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["productionEntries"] });
+      void qc.invalidateQueries({ queryKey: ["dashboardStats"] });
+      void qc.invalidateQueries({ queryKey: ["operatorRankingToday"] });
+    },
   });
 }
 
 // ── Attendance ────────────────────────────────────────────────────────────────
 
 export function useGetAttendanceByDate(date: string) {
+  const { actor, isFetching } = useActor();
   return useQuery<Attendance[]>({
     queryKey: ["attendance", "date", date],
     queryFn: async () => {
-      if (!date) return [];
-      return attendanceStore.getByDate(date);
+      if (!actor) return [];
+      return actor.getAttendanceByDate(date);
     },
-    enabled: !!date,
-    staleTime: 0,
+    enabled: !!actor && !isFetching && !!date,
   });
 }
 
-export function useGetAllAttendance() {
+export function useGetAttendanceByMonth(month: string) {
+  const { actor, isFetching } = useActor();
   return useQuery<Attendance[]>({
-    queryKey: ["attendance", "all"],
-    queryFn: async () => attendanceStore.getAll(),
-    staleTime: 0,
+    queryKey: ["attendance", "monthly", month],
+    queryFn: async () => {
+      if (!actor) return [];
+      const [yearStr, monStr] = month.split("-");
+      const year = Number.parseInt(yearStr);
+      const mon = Number.parseInt(monStr);
+      const daysInMonth = new Date(year, mon, 0).getDate();
+      const dates = Array.from(
+        { length: daysInMonth },
+        (_, i) =>
+          `${year}-${String(mon).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`,
+      );
+      const results = await Promise.all(
+        dates.map((d) => actor.getAttendanceByDate(d)),
+      );
+      return results.flat();
+    },
+    enabled: !!actor && !isFetching && !!month,
   });
 }
 
 export function useMarkAttendance() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
       date: string;
       employeeId: string;
       status: string;
-    }): Promise<string> => {
-      return attendanceStore.mark(data.date, data.employeeId, data.status);
+      checkIn?: string;
+      checkOut?: string;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.markAttendance(
+        data.date,
+        data.employeeId,
+        data.status,
+        data.checkIn ?? "",
+        data.checkOut ?? "",
+      );
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["attendance"] }),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({
+        queryKey: ["attendance", "date", variables.date],
+      });
+      void qc.invalidateQueries({ queryKey: ["dashboardStats"] });
+    },
   });
 }
 
 export function useUpdateAttendance() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
       id: string;
       date: string;
       employeeId: string;
       status: string;
-    }): Promise<void> => {
-      attendanceStore.update(data.id, data.date, data.employeeId, data.status);
+      checkIn: string;
+      checkOut: string;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.updateAttendance(
+        data.id,
+        data.date,
+        data.employeeId,
+        data.status,
+        data.checkIn,
+        data.checkOut,
+      );
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["attendance"] }),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({
+        queryKey: ["attendance", "date", variables.date],
+      });
+    },
   });
 }
 
-export function useGetAttendanceByMonth(month: string) {
-  return useQuery<Attendance[]>({
-    queryKey: ["attendance", "month", month],
+// ── Inventory ─────────────────────────────────────────────────────────────────
+
+export function useGetInventory() {
+  const { actor, isFetching } = useActor();
+  return useQuery<InventoryItem[]>({
+    queryKey: ["inventory"],
     queryFn: async () => {
-      if (!month) return [];
-      return attendanceStore.getAll().filter((a) => a.date.startsWith(month));
+      if (!actor) return [];
+      return actor.getInventory();
     },
-    enabled: !!month,
-    staleTime: 0,
+    enabled: !!actor && !isFetching,
   });
 }
 
-// ── Targets ───────────────────────────────────────────────────────────────────
-
-export function useGetTargets() {
-  return useQuery<Target[]>({
-    queryKey: ["targets"],
-    queryFn: async () => targetStore.getAll(),
-    staleTime: 0,
+export function useGetLowStockItems() {
+  const { actor, isFetching } = useActor();
+  return useQuery<InventoryItem[]>({
+    queryKey: ["inventory", "lowStock"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getLowStockItems();
+    },
+    enabled: !!actor && !isFetching,
   });
 }
+
+export function useAddInventoryItem() {
+  const qc = useQueryClient();
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (data: {
+      itemName: string;
+      stockQty: bigint;
+      unit: string;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.addInventoryItem(data.itemName, data.stockQty, data.unit);
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["inventory"] }),
+  });
+}
+
+export function useUpdateInventoryItem() {
+  const qc = useQueryClient();
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      itemName: string;
+      stockQty: bigint;
+      unit: string;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.updateInventoryItem(
+        data.id,
+        data.itemName,
+        data.stockQty,
+        data.unit,
+      );
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["inventory"] }),
+  });
+}
+
+export function useIssueInventoryToBundle() {
+  const qc = useQueryClient();
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (data: { id: string; qty: bigint }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.issueInventoryToBundle(data.id, data.qty);
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["inventory"] }),
+  });
+}
+
+// ── Quality Control ───────────────────────────────────────────────────────────
+
+export function useGetQualityControl() {
+  const { actor, isFetching } = useActor();
+  return useQuery<QualityControl[]>({
+    queryKey: ["qualityControl"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getQualityControl();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useAddQualityControl() {
+  const qc = useQueryClient();
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (data: {
+      bundleId: string;
+      operationId: string;
+      qty: bigint;
+      reason: string;
+      rework: string;
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.addQualityControl(
+        data.bundleId,
+        data.operationId,
+        data.qty,
+        data.reason,
+        data.rework,
+      );
+    },
+    onSuccess: () =>
+      void qc.invalidateQueries({ queryKey: ["qualityControl"] }),
+  });
+}
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+
+export function useGetMonthlySalary(year: number, month: number) {
+  const { actor, isFetching } = useActor();
+  return useQuery<Report[]>({
+    queryKey: ["salary", year, month],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getSalarySheet(BigInt(year), BigInt(month));
+    },
+    enabled: !!actor && !isFetching && year > 0 && month > 0,
+  });
+}
+
+export function useGetPerformanceRanking() {
+  const { actor, isFetching } = useActor();
+  return useQuery<{ totalPieces: bigint; employeeId: string }[]>({
+    queryKey: ["performanceRanking"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getPerformanceRanking();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+// ── Set Target (updates operation's dailyTarget) ─────────────────────────────
 
 export function useSetTarget() {
   const qc = useQueryClient();
+  const { actor } = useActor();
   return useMutation({
     mutationFn: async (data: {
       operationId: string;
       qty: bigint;
       date: string;
-    }): Promise<string> => {
-      return targetStore.set(data.operationId, data.qty, data.date);
-    },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["targets"] }),
-  });
-}
-
-// ── Dashboard ─────────────────────────────────────────────────────────────────
-
-export function useGetDashboardStats() {
-  return useQuery({
-    queryKey: ["dashboardStats"],
-    queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
-      const todayEntries = productionStore.getByDate(today);
-      const todayProduction = BigInt(
-        todayEntries.reduce((s, e) => s + Number(e.quantity), 0),
+    }) => {
+      if (!actor) throw new Error("Not authenticated");
+      const op = await actor.getOperation(data.operationId);
+      if (!op) throw new Error("Operation not found");
+      return actor.updateOperation(
+        data.operationId,
+        op.name,
+        op.department,
+        op.ratePerPiece,
+        data.qty,
       );
-      const runningBundlesCount = BigInt(
-        bundleStore
-          .getAll()
-          .filter((b) => b.status === "Running" || b.status === "running")
-          .length,
-      );
-      return { todayProduction, runningBundlesCount };
     },
-    staleTime: 0,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["operations"] });
+      void qc.invalidateQueries({ queryKey: ["targets"] });
+    },
   });
 }
 
-export function useGetOperatorRankingToday(todayDate: string) {
-  return useQuery<Array<{ totalQty: bigint; employeeId: string }>>({
-    queryKey: ["operatorRanking", todayDate],
-    queryFn: async () => {
-      if (!todayDate) return [];
-      const entries = productionStore.getByDate(todayDate);
-      const empMap = new Map<string, number>();
-      for (const e of entries) {
-        empMap.set(
-          e.employeeId,
-          (empMap.get(e.employeeId) ?? 0) + Number(e.quantity),
-        );
-      }
-      return Array.from(empMap.entries())
-        .map(([employeeId, qty]) => ({ employeeId, totalQty: BigInt(qty) }))
-        .sort((a, b) => Number(b.totalQty - a.totalQty));
-    },
-    enabled: !!todayDate,
-    staleTime: 0,
-  });
-}
+// ── Bundle Progress ───────────────────────────────────────────────────────────
 
-export function useGetMonthlySalary(year: number, month: number) {
+export function useGetBundleProgress(bundleId: string) {
+  const { actor, isFetching } = useActor();
+  const operationsQuery = useGetOperations();
   return useQuery<
-    Array<{ totalPieces: bigint; employeeId: string; totalAmount: number }>
+    { operationId: string; completed: boolean; totalQty: number }[]
   >({
-    queryKey: ["monthlySalary", year, month],
+    queryKey: ["bundleProgress", bundleId],
     queryFn: async () => {
-      const entries = productionStore.getByMonth(year, month);
-      const empMap = new Map<string, { pieces: number; amount: number }>();
-      for (const e of entries) {
-        const existing = empMap.get(e.employeeId) ?? { pieces: 0, amount: 0 };
-        empMap.set(e.employeeId, {
-          pieces: existing.pieces + Number(e.quantity),
-          amount: existing.amount + e.amount,
-        });
-      }
-      return Array.from(empMap.entries()).map(([employeeId, data]) => ({
-        employeeId,
-        totalPieces: BigInt(data.pieces),
-        totalAmount: data.amount,
+      if (!actor || !bundleId) return [];
+      const entries = await actor.getEntriesByBundle(bundleId);
+      const ops: import("../backend.d").Operation[] =
+        operationsQuery.data ?? (await actor.getOperations());
+      const completedOps = new Set(entries.map((e) => e.operationId));
+      return ops.map((op) => ({
+        operationId: op.id,
+        completed: completedOps.has(op.id),
+        totalQty: entries
+          .filter((e) => e.operationId === op.id)
+          .reduce((s, e) => s + Number(e.quantity), 0),
       }));
     },
-    staleTime: 0,
+    enabled: !!actor && !isFetching && !!bundleId,
   });
 }

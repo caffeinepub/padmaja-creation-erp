@@ -1,544 +1,133 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  ChevronDown,
-  ChevronUp,
-  Download,
-  Factory,
-  Package,
-  Scissors,
-  TrendingUp,
-  Wifi,
-  Zap,
-} from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { importSyncCode, useAuth } from "../hooks/useAuth";
-import { pullMasterData, saveSupervisorPin } from "../hooks/useAutoSync";
+import { Factory, Loader2, Shield, Zap } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 
-interface LoginPageProps {
-  onLogin: (path: string) => void;
-}
-
-export default function LoginPage({ onLogin }: LoginPageProps) {
-  const { login } = useAuth();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Sync code import state
-  const [syncExpanded, setSyncExpanded] = useState(false);
-  const [syncCode, setSyncCode] = useState("");
-  const [syncError, setSyncError] = useState("");
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  // PIN auto-sync state
-  const [pinExpanded, setPinExpanded] = useState(false);
-  const [pinInput, setPinInput] = useState("");
-  const [pinError, setPinError] = useState("");
-  const [isPinConnecting, setIsPinConnecting] = useState(false);
-
-  const handleImportSync = () => {
-    setSyncError("");
-    if (!syncCode.trim()) {
-      setSyncError("Please paste the sync code first.");
-      return;
-    }
-    setIsSyncing(true);
-    // Small timeout for UX feedback
-    setTimeout(() => {
-      const result = importSyncCode(syncCode);
-      setIsSyncing(false);
-      if (result.ok) {
-        toast.success(
-          `${result.count} supervisor account(s) loaded successfully. You can now log in.`,
-        );
-        setSyncCode("");
-        setSyncExpanded(false);
-      } else {
-        setSyncError(result.error ?? "Failed to import sync code.");
-      }
-    }, 300);
-  };
-
-  const handlePinConnect = () => {
-    setPinError("");
-    const trimmed = pinInput.trim();
-    if (!/^\d{6}$/.test(trimmed)) {
-      setPinError("PIN must be exactly 6 digits.");
-      return;
-    }
-    setIsPinConnecting(true);
-    setTimeout(() => {
-      const result = pullMasterData(trimmed);
-      setIsPinConnecting(false);
-      if (result.error) {
-        setPinError(
-          result.error ??
-            "Could not connect. Make sure Admin has enabled Auto-Sync.",
-        );
-        return;
-      }
-      // Save PIN with supervisor role
-      saveSupervisorPin(trimmed);
-      toast.success(
-        "Connected! Supervisor accounts and data loaded. You can now log in.",
-      );
-      setPinInput("");
-      setPinExpanded(false);
-    }, 400);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setIsLoading(true);
-
-    const result = login(username, password);
-    if (result.ok) {
-      // Navigate based on role — App.tsx will handle routing
-      onLogin("/");
-    } else {
-      setError(result.error ?? "Invalid credentials.");
-      setIsLoading(false);
-    }
-  };
+export default function LoginPage() {
+  const { login, loginStatus } = useAuth();
+  const isLoggingIn = loginStatus === "logging-in";
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left panel - branding */}
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Background grid */}
       <div
-        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12"
-        style={{ background: "oklch(0.22 0.04 220)" }}
-      >
-        <div>
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
-              <span className="text-lg font-display font-bold text-sidebar-primary-foreground">
-                PC
-              </span>
+        className="fixed inset-0 opacity-[0.04] pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(oklch(91% 0.01 260) 1px, transparent 1px), linear-gradient(90deg, oklch(91% 0.01 260) 1px, transparent 1px)",
+          backgroundSize: "50px 50px",
+        }}
+      />
+
+      {/* Glow blob */}
+      <div
+        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-[0.07] pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle, oklch(60% 0.2 250), transparent 70%)",
+        }}
+      />
+
+      <div className="w-full max-w-sm relative">
+        {/* Logo area */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="relative mb-5">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/40 flex items-center justify-center shadow-glow">
+              <Factory className="w-10 h-10 text-primary" />
             </div>
-            <div>
-              <div className="font-display font-bold text-white text-lg leading-tight">
-                Padmaja Creation
-              </div>
-              <div className="text-xs text-white/50">Pvt Ltd</div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-success flex items-center justify-center border-2 border-background">
+              <Zap className="w-3 h-3 text-success-foreground" />
             </div>
           </div>
-
-          <h1 className="font-display text-4xl font-bold text-white leading-tight mb-4">
-            Garment Production
-            <br />
-            <span className="text-sidebar-primary">Management ERP</span>
+          <h1 className="text-2xl font-display font-bold text-foreground tracking-tight text-center">
+            Padmaja Creation
           </h1>
-          <p className="text-white/60 text-lg leading-relaxed max-w-sm">
-            Track production from cutting to dispatch. Monitor worker
-            performance, automate salaries, and generate reports.
+          <p className="text-sm text-muted-foreground mt-1 text-center">
+            Garment Manufacturing ERP System
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        {/* Login card */}
+        <div className="bg-card border border-border rounded-2xl shadow-card p-7 space-y-6">
+          <div className="text-center">
+            <h2 className="text-lg font-semibold text-foreground">Sign In</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Authenticate securely via Internet Identity
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 bg-muted/30 rounded-xl p-3">
+              <Shield className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  Blockchain-secured access
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Your data is stored permanently on the Internet Computer
+                  blockchain
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            data-ocid="login.primary_button"
+            onClick={() => login()}
+            disabled={isLoggingIn}
+            className="w-full h-12 text-base font-semibold gap-2"
+          >
+            {isLoggingIn ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Factory className="w-5 h-5" />
+            )}
+            {isLoggingIn ? "Connecting..." : "Login with Internet Identity"}
+          </Button>
+
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">
+              New users: Login and request access from Admin
+            </p>
+          </div>
+        </div>
+
+        {/* Roles info */}
+        <div className="mt-5 grid grid-cols-2 gap-3">
           {[
-            { icon: Scissors, label: "Bundle Tracking" },
-            { icon: TrendingUp, label: "Performance Analytics" },
-            { icon: Package, label: "Salary Automation" },
-          ].map(({ icon: Icon, label }) => (
+            {
+              label: "Admin",
+              desc: "Full factory management",
+              color: "text-primary",
+            },
+            {
+              label: "Supervisor",
+              desc: "Production & attendance",
+              color: "text-success",
+            },
+          ].map((r) => (
             <div
-              key={label}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white/5"
+              key={r.label}
+              className="bg-card/50 border border-border rounded-xl p-3 text-center"
             >
-              <Icon className="w-6 h-6 text-sidebar-primary" />
-              <span className="text-xs text-white/60 text-center">{label}</span>
+              <p className={`text-sm font-bold ${r.color}`}>{r.label}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{r.desc}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Right panel - login form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-background">
-        {/* Mobile logo */}
-        <div className="lg:hidden mb-8 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-3">
-            <Factory className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <h1 className="font-display text-2xl font-bold text-foreground">
-            Padmaja Creation
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Production Management ERP
-          </p>
-        </div>
-
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <h2 className="font-display text-3xl font-bold text-foreground">
-              Welcome back
-            </h2>
-            <p className="mt-2 text-muted-foreground text-sm">
-              Sign in to your account to continue
-            </p>
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-5"
-            noValidate
-            autoComplete="off"
-          >
-            <div className="space-y-2">
-              <Label
-                htmlFor="login-username"
-                className="text-sm font-medium text-foreground"
-              >
-                Login ID
-              </Label>
-              <Input
-                id="login-username"
-                data-ocid="login.username_input"
-                type="text"
-                placeholder="Enter your login ID"
-                value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  if (error) setError("");
-                }}
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                className="h-11 text-base"
-                disabled={isLoading}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label
-                htmlFor="login-password"
-                className="text-sm font-medium text-foreground"
-              >
-                Password
-              </Label>
-              <Input
-                id="login-password"
-                data-ocid="login.password_input"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (error) setError("");
-                }}
-                autoComplete="current-password"
-                className="h-11 text-base"
-                disabled={isLoading}
-                required
-              />
-            </div>
-
-            {error && (
-              <div
-                data-ocid="login.error_state"
-                className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm"
-                role="alert"
-                aria-live="polite"
-              >
-                <svg
-                  className="w-4 h-4 flex-shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {error}
-              </div>
-            )}
-
-            <Button
-              data-ocid="login.primary_button"
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-11 text-base font-semibold mt-2"
-              size="lg"
-            >
-              {isLoading ? (
-                <>
-                  <svg
-                    className="mr-2 h-5 w-5 animate-spin"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <Factory className="mr-2 h-5 w-5" />
-                  Sign In
-                </>
-              )}
-            </Button>
-          </form>
-
-          {/* Sync code import section */}
-          <div className="mt-6 border border-border rounded-xl overflow-hidden">
-            <button
-              type="button"
-              data-ocid="login.sync_toggle"
-              onClick={() => {
-                setSyncExpanded((v) => !v);
-                setSyncError("");
-              }}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors"
-              aria-expanded={syncExpanded}
-            >
-              <div className="flex items-center gap-2.5">
-                <Download className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span className="text-sm text-muted-foreground font-medium">
-                  First time on this device? Import sync code
-                </span>
-              </div>
-              {syncExpanded ? (
-                <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              )}
-            </button>
-
-            {syncExpanded && (
-              <div className="px-4 pb-4 space-y-3 border-t border-border bg-muted/20">
-                <p className="text-xs text-muted-foreground pt-3 leading-relaxed">
-                  Ask your Admin to share the sync code via WhatsApp. Paste it
-                  below to load your account on this device.
-                </p>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="sync-code-input"
-                    className="text-xs font-medium text-foreground"
-                  >
-                    Sync Code
-                  </Label>
-                  <Textarea
-                    id="sync-code-input"
-                    data-ocid="login.sync_textarea"
-                    placeholder="Paste the sync code here..."
-                    value={syncCode}
-                    onChange={(e) => {
-                      setSyncCode(e.target.value);
-                      if (syncError) setSyncError("");
-                    }}
-                    className="text-sm font-mono resize-none h-20 bg-background"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                  />
-                </div>
-
-                {syncError && (
-                  <div
-                    data-ocid="login.sync_error_state"
-                    className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs"
-                    role="alert"
-                    aria-live="polite"
-                  >
-                    {syncError}
-                  </div>
-                )}
-
-                <Button
-                  type="button"
-                  data-ocid="login.sync_submit_button"
-                  onClick={handleImportSync}
-                  disabled={isSyncing || !syncCode.trim()}
-                  variant="outline"
-                  className="w-full h-10 text-sm"
-                >
-                  {isSyncing ? (
-                    <>
-                      <svg
-                        className="mr-2 h-4 w-4 animate-spin"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
-                      </svg>
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="mr-2 h-4 w-4" />
-                      Import & Continue
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* PIN auto-sync section */}
-          <div className="mt-3 border border-emerald-500/30 rounded-xl overflow-hidden">
-            <button
-              type="button"
-              data-ocid="login.pin_toggle"
-              onClick={() => {
-                setPinExpanded((v) => !v);
-                setPinError("");
-              }}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-emerald-500/5 transition-colors"
-              aria-expanded={pinExpanded}
-            >
-              <div className="flex items-center gap-2.5">
-                <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                <span className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
-                  Have a sync PIN? Connect here
-                </span>
-              </div>
-              {pinExpanded ? (
-                <ChevronUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-              )}
-            </button>
-
-            {pinExpanded && (
-              <div className="px-4 pb-4 space-y-3 border-t border-emerald-500/20 bg-emerald-500/5">
-                <p className="text-xs text-muted-foreground pt-3 leading-relaxed">
-                  Ask Admin for the 6-digit sync PIN. Enter it once to load
-                  supervisor accounts and enable auto-sync on this device.
-                </p>
-
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="pin-code-input"
-                    className="text-xs font-medium text-foreground"
-                  >
-                    6-Digit Sync PIN
-                  </Label>
-                  <Input
-                    id="pin-code-input"
-                    data-ocid="login.pin_input"
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="Enter 6-digit PIN"
-                    value={pinInput}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-                      setPinInput(val);
-                      if (pinError) setPinError("");
-                    }}
-                    className="text-center text-xl font-mono tracking-[0.25em] h-11 bg-background"
-                    maxLength={6}
-                    autoComplete="off"
-                  />
-                </div>
-
-                {pinError && (
-                  <div
-                    data-ocid="login.pin_error_state"
-                    className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs"
-                    role="alert"
-                    aria-live="polite"
-                  >
-                    {pinError}
-                  </div>
-                )}
-
-                <Button
-                  type="button"
-                  data-ocid="login.pin_connect_button"
-                  onClick={handlePinConnect}
-                  disabled={isPinConnecting || pinInput.length !== 6}
-                  className="w-full h-10 text-sm bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-                >
-                  {isPinConnecting ? (
-                    <>
-                      <svg
-                        className="h-4 w-4 animate-spin"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
-                      </svg>
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Wifi className="h-4 w-4" />
-                      Connect with PIN
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <footer className="mt-auto pt-8 text-center">
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()}.{" "}
-            <a
-              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-              className="hover:text-foreground transition-colors"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Built with love using caffeine.ai
-            </a>
-          </p>
-        </footer>
-      </div>
+      {/* Footer */}
+      <p className="mt-10 text-xs text-muted-foreground text-center">
+        © {new Date().getFullYear()} Padmaja Creation Pvt Ltd.{" "}
+        <a
+          href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-foreground transition-colors"
+        >
+          Built with caffeine.ai
+        </a>
+      </p>
     </div>
   );
 }

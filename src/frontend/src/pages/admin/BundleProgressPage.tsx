@@ -47,7 +47,7 @@ export default function BundleProgressPage() {
           <SelectContent>
             {bundles.map((b) => (
               <SelectItem key={b.id} value={b.id}>
-                {b.id} — {b.styleNumber} ({b.size}/{b.color})
+                {b.id} — {b.style} ({b.size}/{b.color})
               </SelectItem>
             ))}
           </SelectContent>
@@ -63,7 +63,7 @@ export default function BundleProgressPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Style</p>
-              <p className="font-medium">{selectedBundle.styleNumber}</p>
+              <p className="font-medium">{selectedBundle.style}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Size / Color</p>

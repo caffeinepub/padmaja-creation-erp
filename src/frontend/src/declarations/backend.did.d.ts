@@ -13,30 +13,42 @@ import type { Principal } from '@icp-sdk/core/principal';
 export interface Attendance {
   'id' : string,
   'status' : string,
+  'checkIn' : string,
   'date' : string,
   'employeeId' : string,
+  'checkOut' : string,
 }
 export interface Bundle {
   'id' : string,
   'status' : string,
-  'styleNumber' : string,
+  'dateCreated' : string,
   'color' : string,
   'size' : string,
-  'createdDate' : string,
+  'stage' : string,
+  'style' : string,
   'quantity' : bigint,
-}
-export interface DashboardStats {
-  'todayProduction' : bigint,
-  'runningBundlesCount' : bigint,
+  'priority' : string,
+  'qrCode' : string,
 }
 export interface Employee {
   'id' : string,
   'status' : string,
+  'bankAccount' : string,
   'joinDate' : string,
   'name' : string,
+  'aadhaar' : string,
+  'specialization' : string,
+  'ratePerPiece' : number,
   'salaryType' : string,
+  'skillLevel' : string,
   'phone' : string,
   'department' : string,
+}
+export interface InventoryItem {
+  'id' : string,
+  'stockQty' : bigint,
+  'unit' : string,
+  'itemName' : string,
 }
 export interface Operation {
   'id' : string,
@@ -54,12 +66,20 @@ export interface ProductionEntry {
   'quantity' : bigint,
   'bundleId' : string,
   'amount' : number,
+  'supervisorId' : string,
 }
-export interface Target {
+export interface QualityControl {
   'id' : string,
-  'date' : string,
-  'targetQty' : bigint,
+  'rejectedQty' : bigint,
+  'reworkStatus' : string,
   'operationId' : string,
+  'bundleId' : string,
+  'reason' : string,
+}
+export interface Report {
+  'totalPieces' : bigint,
+  'employeeId' : string,
+  'totalAmount' : number,
 }
 export interface UserProfile { 'name' : string, 'role' : string }
 export type UserRole = { 'admin' : null } |
@@ -67,69 +87,107 @@ export type UserRole = { 'admin' : null } |
   { 'guest' : null };
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addBulkProductionEntries' : ActorMethod<[Array<ProductionEntry>], undefined>,
   'addBundle' : ActorMethod<
-    [string, string, string, bigint, string, string],
+    [string, string, string, bigint, string, string, string, string],
     string
   >,
   'addEmployee' : ActorMethod<
-    [string, string, string, string, string, string],
+    [
+      string,
+      string,
+      string,
+      string,
+      number,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ],
     string
   >,
-  'addOperation' : ActorMethod<[string, number, string, bigint], string>,
+  'addInventoryItem' : ActorMethod<[string, bigint, string], string>,
+  'addOperation' : ActorMethod<[string, string, number, bigint], string>,
   'addProductionEntry' : ActorMethod<
-    [string, string, string, string, bigint, number, number],
+    [string, string, string, string, string, bigint, number, number],
+    string
+  >,
+  'addQualityControl' : ActorMethod<
+    [string, string, bigint, string, string],
     string
   >,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'deleteBundle' : ActorMethod<[string], undefined>,
   'deleteEmployee' : ActorMethod<[string], undefined>,
   'deleteOperation' : ActorMethod<[string], undefined>,
-  'getAllAttendance' : ActorMethod<[], Array<Attendance>>,
   'getAttendanceByDate' : ActorMethod<[string], Array<Attendance>>,
   'getBundle' : ActorMethod<[string], [] | [Bundle]>,
-  'getBundleProgress' : ActorMethod<
-    [string],
-    Array<{ 'completed' : boolean, 'operationId' : string }>
-  >,
+  'getBundleByQRCode' : ActorMethod<[string], [] | [Bundle]>,
   'getBundles' : ActorMethod<[], Array<Bundle>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
-  'getDashboardStats' : ActorMethod<[], DashboardStats>,
   'getEmployee' : ActorMethod<[string], [] | [Employee]>,
   'getEmployees' : ActorMethod<[], Array<Employee>>,
+  'getEntriesByBundle' : ActorMethod<[string], Array<ProductionEntry>>,
   'getEntriesByDate' : ActorMethod<[string], Array<ProductionEntry>>,
   'getEntriesByEmployee' : ActorMethod<[string], Array<ProductionEntry>>,
-  'getEntriesByMonth' : ActorMethod<[bigint, bigint], Array<ProductionEntry>>,
-  'getMonthlySalary' : ActorMethod<
-    [bigint, bigint],
-    Array<
-      { 'totalPieces' : bigint, 'employeeId' : string, 'totalAmount' : number }
-    >
+  'getInventory' : ActorMethod<[], Array<InventoryItem>>,
+  'getLowStockItems' : ActorMethod<[], Array<InventoryItem>>,
+  'getMonthlyAttendanceByEmployee' : ActorMethod<
+    [string, bigint, bigint],
+    Array<Attendance>
   >,
   'getOperation' : ActorMethod<[string], [] | [Operation]>,
   'getOperations' : ActorMethod<[], Array<Operation>>,
-  'getOperatorRankingToday' : ActorMethod<
-    [string],
-    Array<{ 'totalQty' : bigint, 'employeeId' : string }>
+  'getPerformanceRanking' : ActorMethod<
+    [],
+    Array<{ 'totalPieces' : bigint, 'employeeId' : string }>
   >,
   'getProductionEntries' : ActorMethod<[], Array<ProductionEntry>>,
-  'getTargets' : ActorMethod<[], Array<Target>>,
+  'getProductionSummaryForToday' : ActorMethod<[], [bigint, number]>,
+  'getQualityControl' : ActorMethod<[], Array<QualityControl>>,
+  'getSalarySheet' : ActorMethod<[bigint, bigint], Array<Report>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
-  'markAttendance' : ActorMethod<[string, string, string], string>,
+  'issueInventoryToBundle' : ActorMethod<[string, bigint], undefined>,
+  'markAttendance' : ActorMethod<
+    [string, string, string, string, string],
+    string
+  >,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
-  'setTarget' : ActorMethod<[string, bigint, string], string>,
-  'updateAttendance' : ActorMethod<[string, string, string, string], undefined>,
+  'updateAttendance' : ActorMethod<
+    [string, string, string, string, string, string],
+    undefined
+  >,
   'updateBundle' : ActorMethod<
-    [string, string, string, string, bigint, string, string],
+    [string, string, string, string, bigint, string, string, string, string],
     undefined
   >,
   'updateEmployee' : ActorMethod<
-    [string, string, string, string, string, string, string],
+    [
+      string,
+      string,
+      string,
+      string,
+      string,
+      number,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ],
+    undefined
+  >,
+  'updateInventoryItem' : ActorMethod<
+    [string, string, bigint, string],
     undefined
   >,
   'updateOperation' : ActorMethod<
-    [string, string, number, string, bigint],
+    [string, string, string, number, bigint],
     undefined
   >,
 }

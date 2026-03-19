@@ -8,40 +8,6 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
-export const UserRole = IDL.Variant({
-  'admin' : IDL.Null,
-  'user' : IDL.Null,
-  'guest' : IDL.Null,
-});
-export const Attendance = IDL.Record({
-  'id' : IDL.Text,
-  'status' : IDL.Text,
-  'date' : IDL.Text,
-  'employeeId' : IDL.Text,
-});
-export const Bundle = IDL.Record({
-  'id' : IDL.Text,
-  'status' : IDL.Text,
-  'styleNumber' : IDL.Text,
-  'color' : IDL.Text,
-  'size' : IDL.Text,
-  'createdDate' : IDL.Text,
-  'quantity' : IDL.Nat,
-});
-export const UserProfile = IDL.Record({ 'name' : IDL.Text, 'role' : IDL.Text });
-export const DashboardStats = IDL.Record({
-  'todayProduction' : IDL.Nat,
-  'runningBundlesCount' : IDL.Nat,
-});
-export const Employee = IDL.Record({
-  'id' : IDL.Text,
-  'status' : IDL.Text,
-  'joinDate' : IDL.Text,
-  'name' : IDL.Text,
-  'salaryType' : IDL.Text,
-  'phone' : IDL.Text,
-  'department' : IDL.Text,
-});
 export const ProductionEntry = IDL.Record({
   'id' : IDL.Text,
   'date' : IDL.Text,
@@ -51,6 +17,53 @@ export const ProductionEntry = IDL.Record({
   'quantity' : IDL.Nat,
   'bundleId' : IDL.Text,
   'amount' : IDL.Float64,
+  'supervisorId' : IDL.Text,
+});
+export const UserRole = IDL.Variant({
+  'admin' : IDL.Null,
+  'user' : IDL.Null,
+  'guest' : IDL.Null,
+});
+export const Attendance = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'checkIn' : IDL.Text,
+  'date' : IDL.Text,
+  'employeeId' : IDL.Text,
+  'checkOut' : IDL.Text,
+});
+export const Bundle = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'dateCreated' : IDL.Text,
+  'color' : IDL.Text,
+  'size' : IDL.Text,
+  'stage' : IDL.Text,
+  'style' : IDL.Text,
+  'quantity' : IDL.Nat,
+  'priority' : IDL.Text,
+  'qrCode' : IDL.Text,
+});
+export const UserProfile = IDL.Record({ 'name' : IDL.Text, 'role' : IDL.Text });
+export const Employee = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'bankAccount' : IDL.Text,
+  'joinDate' : IDL.Text,
+  'name' : IDL.Text,
+  'aadhaar' : IDL.Text,
+  'specialization' : IDL.Text,
+  'ratePerPiece' : IDL.Float64,
+  'salaryType' : IDL.Text,
+  'skillLevel' : IDL.Text,
+  'phone' : IDL.Text,
+  'department' : IDL.Text,
+});
+export const InventoryItem = IDL.Record({
+  'id' : IDL.Text,
+  'stockQty' : IDL.Nat,
+  'unit' : IDL.Text,
+  'itemName' : IDL.Text,
 });
 export const Operation = IDL.Record({
   'id' : IDL.Text,
@@ -59,32 +72,63 @@ export const Operation = IDL.Record({
   'ratePerPiece' : IDL.Float64,
   'department' : IDL.Text,
 });
-export const Target = IDL.Record({
+export const QualityControl = IDL.Record({
   'id' : IDL.Text,
-  'date' : IDL.Text,
-  'targetQty' : IDL.Nat,
+  'rejectedQty' : IDL.Nat,
+  'reworkStatus' : IDL.Text,
   'operationId' : IDL.Text,
+  'bundleId' : IDL.Text,
+  'reason' : IDL.Text,
+});
+export const Report = IDL.Record({
+  'totalPieces' : IDL.Nat,
+  'employeeId' : IDL.Text,
+  'totalAmount' : IDL.Float64,
 });
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'addBulkProductionEntries' : IDL.Func([IDL.Vec(ProductionEntry)], [], []),
   'addBundle' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+      ],
       [IDL.Text],
       [],
     ),
   'addEmployee' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Float64,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+      ],
       [IDL.Text],
       [],
     ),
+  'addInventoryItem' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [IDL.Text], []),
   'addOperation' : IDL.Func(
-      [IDL.Text, IDL.Float64, IDL.Text, IDL.Nat],
+      [IDL.Text, IDL.Text, IDL.Float64, IDL.Nat],
       [IDL.Text],
       [],
     ),
   'addProductionEntry' : IDL.Func(
       [
+        IDL.Text,
         IDL.Text,
         IDL.Text,
         IDL.Text,
@@ -96,32 +140,32 @@ export const idlService = IDL.Service({
       [IDL.Text],
       [],
     ),
+  'addQualityControl' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+      [IDL.Text],
+      [],
+    ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'deleteBundle' : IDL.Func([IDL.Text], [], []),
   'deleteEmployee' : IDL.Func([IDL.Text], [], []),
   'deleteOperation' : IDL.Func([IDL.Text], [], []),
-  'getAllAttendance' : IDL.Func([], [IDL.Vec(Attendance)], ['query']),
   'getAttendanceByDate' : IDL.Func(
       [IDL.Text],
       [IDL.Vec(Attendance)],
       ['query'],
     ),
   'getBundle' : IDL.Func([IDL.Text], [IDL.Opt(Bundle)], ['query']),
-  'getBundleProgress' : IDL.Func(
-      [IDL.Text],
-      [
-        IDL.Vec(
-          IDL.Record({ 'completed' : IDL.Bool, 'operationId' : IDL.Text })
-        ),
-      ],
-      ['query'],
-    ),
+  'getBundleByQRCode' : IDL.Func([IDL.Text], [IDL.Opt(Bundle)], ['query']),
   'getBundles' : IDL.Func([], [IDL.Vec(Bundle)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-  'getDashboardStats' : IDL.Func([], [DashboardStats], ['query']),
   'getEmployee' : IDL.Func([IDL.Text], [IDL.Opt(Employee)], ['query']),
   'getEmployees' : IDL.Func([], [IDL.Vec(Employee)], ['query']),
+  'getEntriesByBundle' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(ProductionEntry)],
+      ['query'],
+    ),
   'getEntriesByDate' : IDL.Func(
       [IDL.Text],
       [IDL.Vec(ProductionEntry)],
@@ -132,59 +176,90 @@ export const idlService = IDL.Service({
       [IDL.Vec(ProductionEntry)],
       ['query'],
     ),
-  'getEntriesByMonth' : IDL.Func(
-      [IDL.Nat, IDL.Nat],
-      [IDL.Vec(ProductionEntry)],
-      ['query'],
-    ),
-  'getMonthlySalary' : IDL.Func(
-      [IDL.Nat, IDL.Nat],
-      [
-        IDL.Vec(
-          IDL.Record({
-            'totalPieces' : IDL.Nat,
-            'employeeId' : IDL.Text,
-            'totalAmount' : IDL.Float64,
-          })
-        ),
-      ],
+  'getInventory' : IDL.Func([], [IDL.Vec(InventoryItem)], ['query']),
+  'getLowStockItems' : IDL.Func([], [IDL.Vec(InventoryItem)], ['query']),
+  'getMonthlyAttendanceByEmployee' : IDL.Func(
+      [IDL.Text, IDL.Nat, IDL.Nat],
+      [IDL.Vec(Attendance)],
       ['query'],
     ),
   'getOperation' : IDL.Func([IDL.Text], [IDL.Opt(Operation)], ['query']),
   'getOperations' : IDL.Func([], [IDL.Vec(Operation)], ['query']),
-  'getOperatorRankingToday' : IDL.Func(
-      [IDL.Text],
-      [IDL.Vec(IDL.Record({ 'totalQty' : IDL.Nat, 'employeeId' : IDL.Text }))],
+  'getPerformanceRanking' : IDL.Func(
+      [],
+      [
+        IDL.Vec(
+          IDL.Record({ 'totalPieces' : IDL.Nat, 'employeeId' : IDL.Text })
+        ),
+      ],
       ['query'],
     ),
   'getProductionEntries' : IDL.Func([], [IDL.Vec(ProductionEntry)], ['query']),
-  'getTargets' : IDL.Func([], [IDL.Vec(Target)], ['query']),
+  'getProductionSummaryForToday' : IDL.Func(
+      [],
+      [IDL.Nat, IDL.Float64],
+      ['query'],
+    ),
+  'getQualityControl' : IDL.Func([], [IDL.Vec(QualityControl)], ['query']),
+  'getSalarySheet' : IDL.Func([IDL.Nat, IDL.Nat], [IDL.Vec(Report)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-  'markAttendance' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Text], []),
+  'issueInventoryToBundle' : IDL.Func([IDL.Text, IDL.Nat], [], []),
+  'markAttendance' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Text],
+      [],
+    ),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-  'setTarget' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [IDL.Text], []),
   'updateAttendance' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [],
       [],
     ),
   'updateBundle' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+      ],
       [],
       [],
     ),
   'updateEmployee' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Float64,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+      ],
+      [],
+      [],
+    ),
+  'updateInventoryItem' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Nat, IDL.Text],
       [],
       [],
     ),
   'updateOperation' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Float64, IDL.Text, IDL.Nat],
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Nat],
       [],
       [],
     ),
@@ -193,40 +268,6 @@ export const idlService = IDL.Service({
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
-  const UserRole = IDL.Variant({
-    'admin' : IDL.Null,
-    'user' : IDL.Null,
-    'guest' : IDL.Null,
-  });
-  const Attendance = IDL.Record({
-    'id' : IDL.Text,
-    'status' : IDL.Text,
-    'date' : IDL.Text,
-    'employeeId' : IDL.Text,
-  });
-  const Bundle = IDL.Record({
-    'id' : IDL.Text,
-    'status' : IDL.Text,
-    'styleNumber' : IDL.Text,
-    'color' : IDL.Text,
-    'size' : IDL.Text,
-    'createdDate' : IDL.Text,
-    'quantity' : IDL.Nat,
-  });
-  const UserProfile = IDL.Record({ 'name' : IDL.Text, 'role' : IDL.Text });
-  const DashboardStats = IDL.Record({
-    'todayProduction' : IDL.Nat,
-    'runningBundlesCount' : IDL.Nat,
-  });
-  const Employee = IDL.Record({
-    'id' : IDL.Text,
-    'status' : IDL.Text,
-    'joinDate' : IDL.Text,
-    'name' : IDL.Text,
-    'salaryType' : IDL.Text,
-    'phone' : IDL.Text,
-    'department' : IDL.Text,
-  });
   const ProductionEntry = IDL.Record({
     'id' : IDL.Text,
     'date' : IDL.Text,
@@ -236,6 +277,53 @@ export const idlFactory = ({ IDL }) => {
     'quantity' : IDL.Nat,
     'bundleId' : IDL.Text,
     'amount' : IDL.Float64,
+    'supervisorId' : IDL.Text,
+  });
+  const UserRole = IDL.Variant({
+    'admin' : IDL.Null,
+    'user' : IDL.Null,
+    'guest' : IDL.Null,
+  });
+  const Attendance = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'checkIn' : IDL.Text,
+    'date' : IDL.Text,
+    'employeeId' : IDL.Text,
+    'checkOut' : IDL.Text,
+  });
+  const Bundle = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'dateCreated' : IDL.Text,
+    'color' : IDL.Text,
+    'size' : IDL.Text,
+    'stage' : IDL.Text,
+    'style' : IDL.Text,
+    'quantity' : IDL.Nat,
+    'priority' : IDL.Text,
+    'qrCode' : IDL.Text,
+  });
+  const UserProfile = IDL.Record({ 'name' : IDL.Text, 'role' : IDL.Text });
+  const Employee = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'bankAccount' : IDL.Text,
+    'joinDate' : IDL.Text,
+    'name' : IDL.Text,
+    'aadhaar' : IDL.Text,
+    'specialization' : IDL.Text,
+    'ratePerPiece' : IDL.Float64,
+    'salaryType' : IDL.Text,
+    'skillLevel' : IDL.Text,
+    'phone' : IDL.Text,
+    'department' : IDL.Text,
+  });
+  const InventoryItem = IDL.Record({
+    'id' : IDL.Text,
+    'stockQty' : IDL.Nat,
+    'unit' : IDL.Text,
+    'itemName' : IDL.Text,
   });
   const Operation = IDL.Record({
     'id' : IDL.Text,
@@ -244,32 +332,67 @@ export const idlFactory = ({ IDL }) => {
     'ratePerPiece' : IDL.Float64,
     'department' : IDL.Text,
   });
-  const Target = IDL.Record({
+  const QualityControl = IDL.Record({
     'id' : IDL.Text,
-    'date' : IDL.Text,
-    'targetQty' : IDL.Nat,
+    'rejectedQty' : IDL.Nat,
+    'reworkStatus' : IDL.Text,
     'operationId' : IDL.Text,
+    'bundleId' : IDL.Text,
+    'reason' : IDL.Text,
+  });
+  const Report = IDL.Record({
+    'totalPieces' : IDL.Nat,
+    'employeeId' : IDL.Text,
+    'totalAmount' : IDL.Float64,
   });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'addBulkProductionEntries' : IDL.Func([IDL.Vec(ProductionEntry)], [], []),
     'addBundle' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+        ],
         [IDL.Text],
         [],
       ),
     'addEmployee' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Float64,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+        ],
+        [IDL.Text],
+        [],
+      ),
+    'addInventoryItem' : IDL.Func(
+        [IDL.Text, IDL.Nat, IDL.Text],
         [IDL.Text],
         [],
       ),
     'addOperation' : IDL.Func(
-        [IDL.Text, IDL.Float64, IDL.Text, IDL.Nat],
+        [IDL.Text, IDL.Text, IDL.Float64, IDL.Nat],
         [IDL.Text],
         [],
       ),
     'addProductionEntry' : IDL.Func(
         [
+          IDL.Text,
           IDL.Text,
           IDL.Text,
           IDL.Text,
@@ -281,32 +404,32 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Text],
         [],
       ),
+    'addQualityControl' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+        [IDL.Text],
+        [],
+      ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'deleteBundle' : IDL.Func([IDL.Text], [], []),
     'deleteEmployee' : IDL.Func([IDL.Text], [], []),
     'deleteOperation' : IDL.Func([IDL.Text], [], []),
-    'getAllAttendance' : IDL.Func([], [IDL.Vec(Attendance)], ['query']),
     'getAttendanceByDate' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(Attendance)],
         ['query'],
       ),
     'getBundle' : IDL.Func([IDL.Text], [IDL.Opt(Bundle)], ['query']),
-    'getBundleProgress' : IDL.Func(
-        [IDL.Text],
-        [
-          IDL.Vec(
-            IDL.Record({ 'completed' : IDL.Bool, 'operationId' : IDL.Text })
-          ),
-        ],
-        ['query'],
-      ),
+    'getBundleByQRCode' : IDL.Func([IDL.Text], [IDL.Opt(Bundle)], ['query']),
     'getBundles' : IDL.Func([], [IDL.Vec(Bundle)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-    'getDashboardStats' : IDL.Func([], [DashboardStats], ['query']),
     'getEmployee' : IDL.Func([IDL.Text], [IDL.Opt(Employee)], ['query']),
     'getEmployees' : IDL.Func([], [IDL.Vec(Employee)], ['query']),
+    'getEntriesByBundle' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(ProductionEntry)],
+        ['query'],
+      ),
     'getEntriesByDate' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(ProductionEntry)],
@@ -317,31 +440,20 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(ProductionEntry)],
         ['query'],
       ),
-    'getEntriesByMonth' : IDL.Func(
-        [IDL.Nat, IDL.Nat],
-        [IDL.Vec(ProductionEntry)],
-        ['query'],
-      ),
-    'getMonthlySalary' : IDL.Func(
-        [IDL.Nat, IDL.Nat],
-        [
-          IDL.Vec(
-            IDL.Record({
-              'totalPieces' : IDL.Nat,
-              'employeeId' : IDL.Text,
-              'totalAmount' : IDL.Float64,
-            })
-          ),
-        ],
+    'getInventory' : IDL.Func([], [IDL.Vec(InventoryItem)], ['query']),
+    'getLowStockItems' : IDL.Func([], [IDL.Vec(InventoryItem)], ['query']),
+    'getMonthlyAttendanceByEmployee' : IDL.Func(
+        [IDL.Text, IDL.Nat, IDL.Nat],
+        [IDL.Vec(Attendance)],
         ['query'],
       ),
     'getOperation' : IDL.Func([IDL.Text], [IDL.Opt(Operation)], ['query']),
     'getOperations' : IDL.Func([], [IDL.Vec(Operation)], ['query']),
-    'getOperatorRankingToday' : IDL.Func(
-        [IDL.Text],
+    'getPerformanceRanking' : IDL.Func(
+        [],
         [
           IDL.Vec(
-            IDL.Record({ 'totalQty' : IDL.Nat, 'employeeId' : IDL.Text })
+            IDL.Record({ 'totalPieces' : IDL.Nat, 'employeeId' : IDL.Text })
           ),
         ],
         ['query'],
@@ -351,33 +463,75 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(ProductionEntry)],
         ['query'],
       ),
-    'getTargets' : IDL.Func([], [IDL.Vec(Target)], ['query']),
+    'getProductionSummaryForToday' : IDL.Func(
+        [],
+        [IDL.Nat, IDL.Float64],
+        ['query'],
+      ),
+    'getQualityControl' : IDL.Func([], [IDL.Vec(QualityControl)], ['query']),
+    'getSalarySheet' : IDL.Func(
+        [IDL.Nat, IDL.Nat],
+        [IDL.Vec(Report)],
+        ['query'],
+      ),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-    'markAttendance' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Text], []),
+    'issueInventoryToBundle' : IDL.Func([IDL.Text, IDL.Nat], [], []),
+    'markAttendance' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Text],
+        [],
+      ),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
-    'setTarget' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [IDL.Text], []),
     'updateAttendance' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [],
         [],
       ),
     'updateBundle' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+        ],
         [],
         [],
       ),
     'updateEmployee' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Float64,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+        ],
+        [],
+        [],
+      ),
+    'updateInventoryItem' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Nat, IDL.Text],
         [],
         [],
       ),
     'updateOperation' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Float64, IDL.Text, IDL.Nat],
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Nat],
         [],
         [],
       ),
